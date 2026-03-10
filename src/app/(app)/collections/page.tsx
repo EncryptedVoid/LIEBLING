@@ -79,9 +79,14 @@ export default function CollectionsPage() {
   async function handleCreate() {
     if (!newName.trim()) return;
     setSaving(true);
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
     const { error } = await supabase
       .from("collections")
-      .insert({ name: newName.trim() });
+      .insert({ user_id: user!.id, name: newName.trim() });
     if (error) {
       toast.error("Couldn't create collection.");
     } else {

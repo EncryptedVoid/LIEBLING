@@ -58,13 +58,19 @@ export default function NewEventPage() {
     setSaving(true);
 
     try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) throw new Error("Not logged in.");
+
       let linkedCollectionId: string | null = null;
 
       // Create new collection if needed
       if (collectionId === "new" && newCollectionName.trim()) {
         const { data, error } = await supabase
           .from("collections")
-          .insert({ name: newCollectionName.trim() })
+          .insert({ user_id: user.id, name: newCollectionName.trim() })
           .select("id")
           .single();
         if (error) throw error;
@@ -75,6 +81,7 @@ export default function NewEventPage() {
 
       // Create event
       const { error } = await supabase.from("events").insert({
+        user_id: user.id,
         title: title.trim(),
         description: description.trim() || null,
         date: format(date, "yyyy-MM-dd"),
