@@ -259,7 +259,7 @@ export default function FriendsPage() {
           <div className="flex flex-col gap-2">
             {accepted.map((f) => (
               <Link key={f.id} href={`/profile/${f.friend.id}`}>
-                <Card className="hover:border-foreground/20 transition-colors">
+                <Card className="hover:border-primary/40 transition-colors">
                   <CardContent className="flex items-center gap-3 p-4">
                     <Avatar className="h-9 w-9">
                       <AvatarImage src={f.friend.avatar_url ?? undefined} />

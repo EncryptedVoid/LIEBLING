@@ -14,7 +14,7 @@ type CollectionCardProps = {
 export function CollectionCard({ collection }: CollectionCardProps) {
   return (
     <Link href={`/collections/${collection.id}`}>
-      <Card className="hover:border-foreground/20 transition-colors cursor-pointer">
+      <Card className="hover:border-primary/40 transition-colors cursor-pointer">
         {/* Preview thumbnails */}
         <div className="flex h-24 overflow-hidden rounded-t-lg bg-muted">
           {collection.preview_images.length > 0 ? (

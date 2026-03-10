@@ -7,13 +7,17 @@ export type User = {
   display_name: string;
   avatar_url: string | null;
   friend_code: string;
+  birthday: string | null;
+  theme_mode: "light" | "dark";
+  theme_color: "zinc" | "rose" | "blue" | "green" | "orange" | "violet";
+  onboarded: boolean;
   created_at: string;
 };
 
 export type Item = {
   id: string;
   user_id: string;
-  collection_id: string | null;
+  collection_ids: string[];
   name: string;
   price: number | null;
   image_url: string | null;

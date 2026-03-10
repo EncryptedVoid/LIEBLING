@@ -7,36 +7,54 @@ import { isPast } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EventCard } from "@/components/event-card";
-import type { Event } from "@/lib/types";
+import { EditEventDialog } from "@/components/edit-event-dialog";
+import type { Event, Collection } from "@/lib/types";
 
 type EventWithMeta = Event & { collection_name: string | null };
 
 export default function EventsPage() {
   const supabase = createClient();
   const [events, setEvents] = useState<EventWithMeta[]>([]);
+  const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(true);
 
-  async function fetchEvents() {
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+
+  async function fetchData() {
     setLoading(true);
 
-    const { data } = await supabase
-      .from("events")
-      .select("*, collections(name)")
-      .order("date", { ascending: true });
+    const [eventsRes, colsRes] = await Promise.all([
+      supabase
+        .from("events")
+        .select("*, collections(name)")
+        .order("date", { ascending: true }),
+      supabase.from("collections").select("*").order("name"),
+    ]);
 
-    const enriched: EventWithMeta[] = (data ?? []).map((e: any) => ({
+    const enriched: EventWithMeta[] = (eventsRes.data ?? []).map((e: any) => ({
       ...e,
       collection_name: e.collections?.name ?? null,
       collections: undefined,
     }));
 
     setEvents(enriched);
+    setCollections(colsRes.data ?? []);
     setLoading(false);
   }
 
   useEffect(() => {
-    fetchEvents();
+    fetchData();
   }, []);
+
+  function handleDelete(id: string) {
+    setEvents((prev) => prev.filter((e) => e.id !== id));
+  }
+
+  function handleEdit(event: Event) {
+    setEditingEvent(event);
+    setEditDialogOpen(true);
+  }
 
   const upcoming = events.filter((e) => !isPast(new Date(e.date)));
   const past = events.filter((e) => isPast(new Date(e.date)));
@@ -46,7 +64,7 @@ export default function EventsPage() {
       return (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-32 rounded-lg bg-muted animate-pulse" />
+            <div key={i} className="h-40 rounded-lg bg-muted animate-pulse" />
           ))}
         </div>
       );
@@ -61,7 +79,12 @@ export default function EventsPage() {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {items.map((event) => (
-          <EventCard key={event.id} event={event} />
+          <EventCard
+            key={event.id}
+            event={event}
+            onDelete={handleDelete}
+            onEdit={handleEdit}
+          />
         ))}
       </div>
     );
@@ -93,6 +116,17 @@ export default function EventsPage() {
           <EventList items={past} />
         </TabsContent>
       </Tabs>
+
+      <EditEventDialog
+        open={editDialogOpen}
+        onOpenChange={(open) => {
+          setEditDialogOpen(open);
+          if (!open) setEditingEvent(null);
+        }}
+        event={editingEvent}
+        collections={collections}
+        onSaved={fetchData}
+      />
     </div>
   );
 }

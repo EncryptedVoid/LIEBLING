@@ -52,7 +52,7 @@ export function Nav({ user }: NavProps) {
   return (
     <nav className="flex items-center justify-between px-6 py-3 border-b">
       {/* Logo / wordmark */}
-      <Link href="/dashboard" className="text-lg font-semibold tracking-tight">
+      <Link href="/dashboard" className="text-lg font-semibold tracking-tight text-primary">
         lieblings
       </Link>
 
@@ -63,7 +63,7 @@ export function Nav({ user }: NavProps) {
           return (
             <Button
               key={link.href}
-              variant={isActive ? "secondary" : "ghost"}
+              variant={isActive ? "default" : "ghost"}
               size="sm"
               asChild
             >

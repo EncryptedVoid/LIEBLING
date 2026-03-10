@@ -32,8 +32,14 @@ export default async function proxy(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/login") ||
     request.nextUrl.pathname.startsWith("/signup");
 
+  const isPublicPage =
+    isAuthPage ||
+    request.nextUrl.pathname.startsWith("/invite") ||
+    request.nextUrl.pathname.startsWith("/onboarding") ||
+    request.nextUrl.pathname === "/";
+
   // Not logged in + trying to access app → redirect to login
-  if (!user && !isAuthPage && !request.nextUrl.pathname.startsWith("/invite") && request.nextUrl.pathname !== "/") {
+  if (!user && !isPublicPage) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

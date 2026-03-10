@@ -39,11 +39,17 @@ export default function EventDetailPage() {
         supabase
           .from("items_visible")
           .select("*")
-          .eq("collection_id", eventData.collection_id)
+          .eq("user_id", eventData.user_id)
           .order("created_at", { ascending: false }),
         supabase.from("collections").select("*").order("name"),
       ]);
-      setItems(itemsRes.data ?? []);
+      // Filter to items that belong to this event's collection
+      const allItems = itemsRes.data ?? [];
+      setItems(
+        allItems.filter((i: any) =>
+          i.collection_ids?.includes(eventData.collection_id)
+        )
+      );
       setAllCollections(colsRes.data ?? []);
     }
 

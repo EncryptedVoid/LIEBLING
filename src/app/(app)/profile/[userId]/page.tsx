@@ -75,13 +75,15 @@ export default function FriendProfilePage() {
     if (tabId === "all") return allItems;
     if (tabId.startsWith("col-")) {
       const colId = tabId.replace("col-", "");
-      return allItems.filter((i) => i.collection_id === colId);
+      return allItems.filter((i) => i.collection_ids?.includes(colId));
     }
     if (tabId.startsWith("evt-")) {
       const evtId = tabId.replace("evt-", "");
       const event = events.find((e) => e.id === evtId);
       if (!event?.collection_id) return [];
-      return allItems.filter((i) => i.collection_id === event.collection_id);
+      return allItems.filter((i) =>
+        i.collection_ids?.includes(event.collection_id!)
+      );
     }
     return [];
   }
