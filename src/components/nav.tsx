@@ -25,8 +25,7 @@ type NavProps = {
 
 const navLinks = [
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/items", label: "Items" },
-  { href: "/collections", label: "Collections" },
+  { href: "/wishlist", label: "Wishlist" },
   { href: "/events", label: "Events" },
   { href: "/friends", label: "Friends" },
 ];
