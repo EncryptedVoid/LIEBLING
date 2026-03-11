@@ -92,7 +92,17 @@ export default function FriendsPage() {
       };
     });
 
-    setFriends(rows);
+    // Deduplicate: if both users sent requests, keep only one (prefer accepted)
+    const seen = new Map<string, FriendRow>();
+    for (const row of rows) {
+      if (!row.friend) continue;
+      const existing = seen.get(row.friend.id);
+      if (!existing || (row.status === "accepted" && existing.status !== "accepted")) {
+        seen.set(row.friend.id, row);
+      }
+    }
+
+    setFriends(Array.from(seen.values()));
     setLoading(false);
   }
 
@@ -119,6 +129,20 @@ export default function FriendsPage() {
 
     if (target.id === currentUserId) {
       toast.error("That's your own code!");
+      setAdding(false);
+      return;
+    }
+
+    // Check if friendship already exists in either direction
+    const { data: existing } = await supabase
+      .from("friendships")
+      .select("id")
+      .or(
+        `and(requester_id.eq.${currentUserId},addressee_id.eq.${target.id}),and(requester_id.eq.${target.id},addressee_id.eq.${currentUserId})`
+      );
+
+    if (existing && existing.length > 0) {
+      toast.error("You're already connected or have a pending request.");
       setAdding(false);
       return;
     }

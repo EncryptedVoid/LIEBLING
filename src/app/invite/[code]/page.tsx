@@ -54,6 +54,21 @@ export default function InvitePage() {
     if (!currentUser || !inviter) return;
     setAccepting(true);
 
+    // Check if friendship already exists in either direction
+    const { data: existing } = await supabase
+      .from("friendships")
+      .select("id")
+      .or(
+        `and(requester_id.eq.${currentUser},addressee_id.eq.${inviter.id}),and(requester_id.eq.${inviter.id},addressee_id.eq.${currentUser})`
+      );
+
+    if (existing && existing.length > 0) {
+      toast.error("You're already connected!");
+      router.push("/friends");
+      setAccepting(false);
+      return;
+    }
+
     const { error: err } = await supabase.from("friendships").insert({
       requester_id: currentUser,
       addressee_id: inviter.id,
