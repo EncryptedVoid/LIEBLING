@@ -128,11 +128,161 @@
   }
 }
 
-/* Hide scrollbar for carousel */
+/* ═══════════════════════════════════════════════════
+   SHIMMER / SKELETON ANIMATION
+   ═══════════════════════════════════════════════════ */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--muted) 25%,
+    var(--border) 50%,
+    var(--muted) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+}
+
+/* ═══════════════════════════════════════════════════
+   LOADING SPINNER
+   ═══════════════════════════════════════════════════ */
+@keyframes spin-fade {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.25;
+  }
+}
+
+.loading-dots > span {
+  animation: spin-fade 1.4s ease-in-out infinite;
+}
+.loading-dots > span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.loading-dots > span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+/* ═══════════════════════════════════════════════════
+   STAGGER ANIMATION FOR GRIDS
+   ═══════════════════════════════════════════════════ */
+@keyframes stagger-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.stagger-grid > * {
+  animation: stagger-in 0.35s ease-out both;
+}
+.stagger-grid > *:nth-child(1) {
+  animation-delay: 0ms;
+}
+.stagger-grid > *:nth-child(2) {
+  animation-delay: 50ms;
+}
+.stagger-grid > *:nth-child(3) {
+  animation-delay: 100ms;
+}
+.stagger-grid > *:nth-child(4) {
+  animation-delay: 150ms;
+}
+.stagger-grid > *:nth-child(5) {
+  animation-delay: 200ms;
+}
+.stagger-grid > *:nth-child(6) {
+  animation-delay: 250ms;
+}
+.stagger-grid > *:nth-child(7) {
+  animation-delay: 300ms;
+}
+.stagger-grid > *:nth-child(8) {
+  animation-delay: 350ms;
+}
+.stagger-grid > *:nth-child(9) {
+  animation-delay: 400ms;
+}
+
+/* ═══════════════════════════════════════════════════
+   GRADIENT CARD ACCENT
+   ═══════════════════════════════════════════════════ */
+.card-gradient-accent {
+  position: relative;
+}
+.card-gradient-accent::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, var(--primary) 0%, transparent 50%);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.card-gradient-accent:hover::before {
+  opacity: 0.4;
+}
+
+/* ═══════════════════════════════════════════════════
+   SCROLLBAR
+   ═══════════════════════════════════════════════════ */
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 100px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+}
+
+/* ═══════════════════════════════════════════════════
+   PAGE TRANSITION
+   ═══════════════════════════════════════════════════ */
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-enter {
+  animation: page-enter 0.3s ease-out;
 }

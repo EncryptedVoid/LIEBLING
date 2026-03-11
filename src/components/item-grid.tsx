@@ -1,4 +1,5 @@
-import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonCard } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/empty-state";
 import type { Item } from "@/lib/types";
 import { ItemCard } from "@/components/item-card";
 
@@ -10,6 +11,7 @@ type ItemGridProps =
       onDelete?: (id: string) => void;
       onEdit?: (item: Item) => void;
       emptyMessage?: string;
+      emptyVariant?: "items" | "search" | "gifts";
     }
   | {
       items: Item[];
@@ -18,36 +20,40 @@ type ItemGridProps =
       currentUserId: string;
       onClaimChange?: () => void;
       emptyMessage?: string;
+      emptyVariant?: "items" | "search" | "gifts";
     };
 
 export function ItemGrid(props: ItemGridProps) {
   const { items, variant, loading, emptyMessage } = props;
+  const emptyVariant =
+    "emptyVariant" in props ? props.emptyVariant : "items";
 
-  // Loading skeletons
   if (loading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger-grid">
         {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-64 rounded-lg" />
+          <SkeletonCard key={i} />
         ))}
       </div>
     );
   }
 
-  // Empty state
   if (items.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <p className="text-muted-foreground">
-          {emptyMessage ?? "No items yet."}
-        </p>
-      </div>
+      <EmptyState
+        variant={emptyVariant ?? "items"}
+        title={emptyMessage ?? "No items yet"}
+        description={
+          variant === "owner"
+            ? "Add your first item to get started."
+            : "Nothing here yet — check back later!"
+        }
+      />
     );
   }
 
-  // Grid
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger-grid">
       {items.map((item) =>
         variant === "owner" ? (
           <ItemCard
