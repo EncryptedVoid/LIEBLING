@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { format, formatDistanceToNow, isPast } from "date-fns";
-import { MapPin, Pencil, Trash2 } from "lucide-react";
+import { MapPin, Pencil, Trash2, CalendarDays } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,7 +24,7 @@ import { toast } from "sonner";
 import type { Event } from "@/lib/types";
 
 type EventCardProps = {
-  event: Event & { collection_name: string | null };
+  event: Event & { collection_name?: string | null };
   onDelete?: (id: string) => void;
   onEdit?: (event: Event) => void;
 };
@@ -36,10 +36,14 @@ export function EventCard({ event, onDelete, onEdit }: EventCardProps) {
 
   const eventDate = new Date(event.date);
   const past = isPast(eventDate);
+  const editable = !!onDelete || !!onEdit;
 
   async function handleDelete() {
     setDeleting(true);
-    const { error } = await supabase.from("events").delete().eq("id", event.id);
+    const { error } = await supabase
+      .from("events")
+      .delete()
+      .eq("id", event.id);
     if (error) {
       toast.error("Couldn't delete event.");
     } else {
@@ -52,74 +56,110 @@ export function EventCard({ event, onDelete, onEdit }: EventCardProps) {
 
   return (
     <>
-      <Card className="hover:border-primary/40 transition-colors">
-        {/* Clickable area — navigates to event detail */}
+      <Card className="overflow-hidden group transition-all duration-300 hover:shadow-xl hover:shadow-primary/5 hover:-translate-y-1 hover:border-primary/30">
+        {/* Color accent */}
+        <div
+          className={`h-0.5 ${
+            past
+              ? "bg-muted-foreground/20"
+              : "bg-gradient-to-r from-primary/60 via-primary/20 to-transparent"
+          }`}
+        />
+
         <Link href={`/events/${event.id}`}>
-          <CardContent className="p-4 flex flex-col gap-2">
-            {/* Title row */}
-            <div className="flex items-start justify-between gap-2">
-              <h3 className="font-medium text-sm">{event.title}</h3>
-              {past ? (
-                <Badge variant="outline">Past</Badge>
-              ) : (
-                <Badge>{formatDistanceToNow(eventDate, { addSuffix: true })}</Badge>
-              )}
+          <CardContent className="p-4 flex gap-3">
+            {/* Date block */}
+            <div
+              className={`h-14 w-14 rounded-xl flex flex-col items-center justify-center shrink-0 transition-colors ${
+                past
+                  ? "bg-muted text-muted-foreground"
+                  : "bg-primary/10 text-primary group-hover:bg-primary/15"
+              }`}
+            >
+              <span className="text-[10px] font-medium uppercase leading-none">
+                {format(eventDate, "MMM")}
+              </span>
+              <span className="text-lg font-bold leading-tight">
+                {format(eventDate, "d")}
+              </span>
             </div>
 
-            {/* Date */}
-            <p className="text-sm text-muted-foreground">
-              {format(eventDate, "EEEE, MMMM d, yyyy")}
-              {event.time && ` at ${event.time}`}
-            </p>
+            {/* Info */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-2">
+                <h3 className="font-medium text-xs leading-snug group-hover:text-primary transition-colors">
+                  {event.title}
+                </h3>
+                {!past && (
+                  <Badge className="shrink-0 text-[10px]">
+                    {formatDistanceToNow(eventDate, { addSuffix: true })}
+                  </Badge>
+                )}
+                {past && (
+                  <Badge variant="outline" className="shrink-0 text-[10px]">
+                    Past
+                  </Badge>
+                )}
+              </div>
 
-            {/* Location */}
-            {event.location && (
-              <p className="text-sm text-muted-foreground flex items-center gap-1">
-                <MapPin className="h-3 w-3" />
-                {event.location}
+              <p className="text-[11px] text-muted-foreground mt-1">
+                {format(eventDate, "EEEE, MMMM d, yyyy")}
+                {event.time && ` at ${event.time}`}
               </p>
-            )}
 
-            {/* Linked collection */}
-            {event.collection_name && (
-              <Badge variant="secondary" className="w-fit mt-1">
-                {event.collection_name}
-              </Badge>
-            )}
+              {event.location && (
+                <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                  <MapPin className="h-2.5 w-2.5" />
+                  {event.location}
+                </p>
+              )}
+
+              {event.collection_name && (
+                <Badge variant="secondary" className="mt-1.5 text-[10px]">
+                  {event.collection_name}
+                </Badge>
+              )}
+            </div>
           </CardContent>
         </Link>
 
-        {/* Action buttons — outside the link so they don't navigate */}
-        <div className="px-4 pb-4 pt-0 flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1 gap-1.5"
-            onClick={() => onEdit?.(event)}
-          >
-            <Pencil className="h-3.5 w-3.5" />
-            Edit
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1 gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10"
-            onClick={() => setShowDeleteDialog(true)}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            Delete
-          </Button>
-        </div>
+        {/* Actions — only if editable */}
+        {editable && (
+          <div className="px-4 pb-3 pt-0 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200">
+            {onEdit && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 gap-1 h-6 text-[10px]"
+                onClick={() => onEdit(event)}
+              >
+                <Pencil className="h-2.5 w-2.5" />
+                Edit
+              </Button>
+            )}
+            {onDelete && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 gap-1 h-6 text-[10px] text-destructive hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30"
+                onClick={() => setShowDeleteDialog(true)}
+              >
+                <Trash2 className="h-2.5 w-2.5" />
+                Delete
+              </Button>
+            )}
+          </div>
+        )}
       </Card>
 
-      {/* Delete confirmation */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete &quot;{event.title}&quot;?</AlertDialogTitle>
+            <AlertDialogTitle>
+              Delete &quot;{event.title}&quot;?
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This will delete the event. Items in the linked collection won&apos;t be
-              affected.
+              Items in the linked collection won&apos;t be affected.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

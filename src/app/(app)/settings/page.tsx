@@ -10,10 +10,20 @@ import { Check, Sun, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,6 +35,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { AvatarUpload } from "@/components/avatar-upload";
 import { FriendCodeShare } from "@/components/friend-code-share";
 import { toast } from "sonner";
 
@@ -33,6 +44,7 @@ export default function SettingsPage() {
   const router = useRouter();
 
   const [displayName, setDisplayName] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [friendCode, setFriendCode] = useState("");
   const [birthday, setBirthday] = useState<Date | undefined>();
   const [themeMode, setThemeMode] = useState<"light" | "dark">("light");
@@ -50,12 +62,15 @@ export default function SettingsPage() {
 
       const { data } = await supabase
         .from("users")
-        .select("display_name, friend_code, birthday, theme_mode, theme_color")
+        .select(
+          "display_name, avatar_url, friend_code, birthday, theme_mode, theme_color"
+        )
         .eq("id", user.id)
         .single();
 
       if (data) {
         setDisplayName(data.display_name);
+        setAvatarUrl(data.avatar_url);
         setFriendCode(data.friend_code);
         setBirthday(data.birthday ? new Date(data.birthday) : undefined);
         setThemeMode(data.theme_mode);
@@ -97,10 +112,7 @@ export default function SettingsPage() {
 
     const { error } = await supabase
       .from("users")
-      .update({
-        theme_mode: themeMode,
-        theme_color: themeColor,
-      })
+      .update({ theme_mode: themeMode, theme_color: themeColor })
       .eq("id", user!.id);
 
     if (error) {
@@ -121,7 +133,7 @@ export default function SettingsPage() {
     return (
       <div className="max-w-lg mx-auto">
         <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <div className="mt-8 h-64 rounded-lg bg-muted animate-pulse" />
+        <div className="mt-8 h-64 rounded-xl bg-muted animate-pulse" />
       </div>
     );
   }
@@ -133,10 +145,21 @@ export default function SettingsPage() {
       {/* ── Profile ────────────────────────────────────── */}
       <Card className="mt-8">
         <CardHeader>
-          <CardTitle className="text-base">Profile</CardTitle>
-          <CardDescription>Your name and birthday.</CardDescription>
+          <CardTitle className="text-sm">Profile</CardTitle>
+          <CardDescription>Your photo, name, and birthday.</CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4">
+        <CardContent className="flex flex-col gap-5">
+          {/* Avatar upload */}
+          <AvatarUpload
+            currentUrl={avatarUrl}
+            displayName={displayName}
+            onUploaded={(url) => {
+              setAvatarUrl(url);
+              router.refresh();
+            }}
+            size="lg"
+          />
+
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="displayName">Display name</Label>
             <Input
@@ -150,7 +173,10 @@ export default function SettingsPage() {
             <Label>Birthday</Label>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" className="justify-start font-normal">
+                <Button
+                  variant="outline"
+                  className="justify-start font-normal"
+                >
                   {birthday ? format(birthday, "MMMM d, yyyy") : "Not set"}
                 </Button>
               </PopoverTrigger>
@@ -177,42 +203,39 @@ export default function SettingsPage() {
       {/* ── Appearance ─────────────────────────────────── */}
       <Card className="mt-6">
         <CardHeader>
-          <CardTitle className="text-base">Appearance</CardTitle>
+          <CardTitle className="text-sm">Appearance</CardTitle>
           <CardDescription>Customize how Lieblings looks.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
-          {/* Mode toggle */}
           <div className="flex flex-col gap-2">
             <Label>Mode</Label>
             <div className="flex gap-3">
-              <button
-                onClick={() => setThemeMode("light")}
-                className={`flex-1 flex items-center justify-center gap-2 rounded-lg border-2 p-3 transition-all ${
-                  themeMode === "light"
-                    ? "border-primary bg-primary/5"
-                    : "border-muted hover:border-muted-foreground/20"
-                }`}
-              >
-                <Sun className="h-4 w-4" />
-                <span className="text-sm font-medium">Light</span>
-                {themeMode === "light" && <Check className="h-3 w-3 text-primary" />}
-              </button>
-              <button
-                onClick={() => setThemeMode("dark")}
-                className={`flex-1 flex items-center justify-center gap-2 rounded-lg border-2 p-3 transition-all ${
-                  themeMode === "dark"
-                    ? "border-primary bg-primary/5"
-                    : "border-muted hover:border-muted-foreground/20"
-                }`}
-              >
-                <Moon className="h-4 w-4" />
-                <span className="text-sm font-medium">Dark</span>
-                {themeMode === "dark" && <Check className="h-3 w-3 text-primary" />}
-              </button>
+              {(["light", "dark"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => setThemeMode(mode)}
+                  className={`flex-1 flex items-center justify-center gap-2 rounded-xl border-2 p-3 transition-all ${
+                    themeMode === mode
+                      ? "border-primary bg-primary/5 shadow-sm"
+                      : "border-muted hover:border-muted-foreground/20"
+                  }`}
+                >
+                  {mode === "light" ? (
+                    <Sun className="h-4 w-4" />
+                  ) : (
+                    <Moon className="h-4 w-4" />
+                  )}
+                  <span className="text-xs font-medium capitalize">
+                    {mode}
+                  </span>
+                  {themeMode === mode && (
+                    <Check className="h-3 w-3 text-primary" />
+                  )}
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Color picker */}
           <div className="flex flex-col gap-2">
             <Label>Accent color</Label>
             <div className="grid grid-cols-6 gap-2">
@@ -220,14 +243,14 @@ export default function SettingsPage() {
                 <button
                   key={color.id}
                   onClick={() => setThemeColor(color.id)}
-                  className={`flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 transition-all ${
+                  className={`flex flex-col items-center gap-1.5 rounded-xl border-2 p-3 transition-all ${
                     themeColor === color.id
-                      ? "border-foreground"
+                      ? "border-foreground shadow-sm"
                       : "border-muted hover:border-muted-foreground/20"
                   }`}
                 >
                   <div
-                    className="h-6 w-6 rounded-full"
+                    className="h-6 w-6 rounded-full shadow-inner"
                     style={{ backgroundColor: color.preview }}
                   />
                   <span className="text-[10px] font-medium">{color.label}</span>
@@ -250,9 +273,11 @@ export default function SettingsPage() {
       <Separator className="my-8" />
 
       {/* ── Danger zone ────────────────────────────────── */}
-      <Card className="border-destructive/50">
+      <Card className="border-destructive/30">
         <CardHeader>
-          <CardTitle className="text-base text-destructive">Danger zone</CardTitle>
+          <CardTitle className="text-sm text-destructive">
+            Danger zone
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <AlertDialog>
@@ -263,8 +288,8 @@ export default function SettingsPage() {
               <AlertDialogHeader>
                 <AlertDialogTitle>Delete your account?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This permanently deletes all your items, collections, events,
-                  and friendships. This action cannot be undone.
+                  This permanently deletes everything. This action cannot be
+                  undone.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

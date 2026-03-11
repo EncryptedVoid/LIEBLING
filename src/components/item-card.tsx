@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, ExternalLink, ShoppingBag } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -41,7 +41,6 @@ export function ItemCard(props: ItemCardProps) {
   const [loading, setLoading] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
-  // ── Owner actions ──────────────────────────────────────
   async function handleDelete() {
     if (variant !== "owner") return;
     setLoading(true);
@@ -56,7 +55,6 @@ export function ItemCard(props: ItemCardProps) {
     setShowDeleteDialog(false);
   }
 
-  // ── Friend actions ─────────────────────────────────────
   async function handleClaim() {
     if (variant !== "friend") return;
     setLoading(true);
@@ -87,7 +85,6 @@ export function ItemCard(props: ItemCardProps) {
     setLoading(false);
   }
 
-  // ── Derived state ──────────────────────────────────────
   const isClaimedByMe =
     variant === "friend" && item.claimed_by === props.currentUserId;
   const isClaimedByOther =
@@ -99,75 +96,94 @@ export function ItemCard(props: ItemCardProps) {
 
   return (
     <>
-      <Card className="overflow-hidden group transition-all duration-200 hover:shadow-lg hover:-translate-y-1 hover:border-primary/40">
-        {/* Clickable area — image + info */}
-        <div
-          onClick={handleCardClick}
-          className="cursor-pointer"
-        >
-          {/* Image with padding */}
+      <Card className="overflow-hidden group transition-all duration-300 hover:shadow-xl hover:shadow-primary/5 hover:-translate-y-1.5 hover:border-primary/30 relative">
+        {/* Gradient accent line at top */}
+        <div className="h-0.5 bg-gradient-to-r from-primary/60 via-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+        <div onClick={handleCardClick} className="cursor-pointer">
+          {/* Image */}
           <div className="p-3 pb-0">
-            <div className="aspect-video bg-muted rounded-lg relative overflow-hidden">
+            <div className="aspect-[4/3] bg-muted/50 rounded-xl relative overflow-hidden">
               {item.image_url ? (
                 <img
                   src={item.image_url}
                   alt={item.name}
-                  className="object-contain w-full h-full p-2"
+                  className="object-contain w-full h-full p-3 transition-transform duration-300 group-hover:scale-105"
                 />
               ) : (
-                <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-                  No image
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
+                  <ShoppingBag className="h-8 w-8 opacity-30" />
+                  <span className="text-[10px] opacity-50">No image</span>
                 </div>
               )}
 
-              {/* Claimed overlay for friends */}
+              {/* External link icon on hover */}
+              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-y-1 group-hover:translate-y-0">
+                <div className="h-7 w-7 rounded-full bg-background/90 backdrop-blur-sm shadow-sm flex items-center justify-center">
+                  <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                </div>
+              </div>
+
+              {/* Claimed overlay */}
               {variant === "friend" && item.is_claimed && (
-                <div className="absolute inset-0 bg-background/60 flex items-center justify-center rounded-lg">
-                  <Badge variant={isClaimedByMe ? "default" : "secondary"}>
+                <div className="absolute inset-0 bg-background/70 backdrop-blur-[2px] flex items-center justify-center rounded-xl">
+                  <Badge
+                    variant={isClaimedByMe ? "default" : "secondary"}
+                    className="shadow-sm"
+                  >
                     {isClaimedByMe ? "You claimed this" : "Claimed"}
+                  </Badge>
+                </div>
+              )}
+
+              {/* Price tag */}
+              {item.price && (
+                <div className="absolute bottom-2 left-2">
+                  <Badge
+                    variant="secondary"
+                    className="bg-background/90 backdrop-blur-sm shadow-sm font-mono"
+                  >
+                    ${item.price.toFixed(2)}
                   </Badge>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Name + price */}
-          <CardContent className="p-4 pb-2">
-            <h3 className="font-medium text-sm truncate">{item.name}</h3>
-            {item.price && (
-              <p className="text-sm text-muted-foreground mt-0.5">
-                ${item.price.toFixed(2)}
-              </p>
-            )}
+          {/* Name */}
+          <CardContent className="p-3 pt-2.5">
+            <h3 className="font-medium text-xs leading-snug line-clamp-2 group-hover:text-primary transition-colors duration-200">
+              {item.name}
+            </h3>
           </CardContent>
         </div>
 
-        {/* Actions — NOT part of the clickable redirect area */}
-        <div className="px-4 pb-4 pt-1">
+        {/* Actions */}
+        <div className="px-3 pb-3 pt-0">
           {variant === "owner" && (
-            <div className="flex gap-2">
+            <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-y-1 group-hover:translate-y-0">
               <Button
                 variant="outline"
                 size="sm"
-                className="flex-1 gap-1.5"
+                className="flex-1 gap-1 h-7 text-[11px]"
                 onClick={(e) => {
                   e.stopPropagation();
                   props.onEdit?.(item);
                 }}
               >
-                <Pencil className="h-3.5 w-3.5" />
+                <Pencil className="h-3 w-3" />
                 Edit
               </Button>
               <Button
                 variant="outline"
                 size="sm"
-                className="flex-1 gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10"
+                className="flex-1 gap-1 h-7 text-[11px] text-destructive hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30"
                 onClick={(e) => {
                   e.stopPropagation();
                   setShowDeleteDialog(true);
                 }}
               >
-                <Trash2 className="h-3.5 w-3.5" />
+                <Trash2 className="h-3 w-3" />
                 Delete
               </Button>
             </div>
@@ -176,7 +192,7 @@ export function ItemCard(props: ItemCardProps) {
           {variant === "friend" && !item.is_claimed && (
             <Button
               size="sm"
-              className="w-full"
+              className="w-full h-7 text-[11px] shadow-sm"
               onClick={(e) => {
                 e.stopPropagation();
                 handleClaim();
@@ -191,7 +207,7 @@ export function ItemCard(props: ItemCardProps) {
             <Button
               variant="outline"
               size="sm"
-              className="w-full"
+              className="w-full h-7 text-[11px]"
               onClick={(e) => {
                 e.stopPropagation();
                 handleUnclaim();
@@ -204,14 +220,13 @@ export function ItemCard(props: ItemCardProps) {
         </div>
       </Card>
 
-      {/* Delete confirmation (owner only) */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete &quot;{item.name}&quot;?</AlertDialogTitle>
             <AlertDialogDescription>
-              This item may have been claimed by a friend. Deleting it can&apos;t be
-              undone.
+              This item may have been claimed by a friend. Deleting it
+              can&apos;t be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

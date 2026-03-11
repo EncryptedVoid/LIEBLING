@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Separator } from "@/components/ui/separator";
+import { FriendRequestsDropdown } from "@/components/friend-requests-dropdown";
 
 type NavProps = {
   user: {
@@ -24,9 +24,9 @@ type NavProps = {
 };
 
 const navLinks = [
-  { href: "/wishlist", label: "My Wishlist" },
-  { href: "/events", label: "My Events" },
-  { href: "/friends", label: "Friends" },
+  { href: "/dashboard", label: "Dashboard" },
+  { href: "/wishlist", label: "Wishlists" },
+  { href: "/events", label: "Events" },
 ];
 
 export function Nav({ user }: NavProps) {
@@ -40,7 +40,6 @@ export function Nav({ user }: NavProps) {
     router.refresh();
   }
 
-  // Get initials for avatar fallback
   const initials = user.display_name
     .split(" ")
     .map((n) => n[0])
@@ -49,22 +48,33 @@ export function Nav({ user }: NavProps) {
     .slice(0, 2);
 
   return (
-    <nav className="flex items-center justify-between px-6 py-3 border-b">
-      {/* Logo / wordmark */}
-      <Link href="/dashboard" className="text-lg font-semibold tracking-tight text-primary">
+    <nav className="sticky top-0 z-40 flex items-center justify-between px-6 py-2.5 border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
+      {/* Logo */}
+      <Link
+        href="/dashboard"
+        className="text-lg font-semibold tracking-tight text-primary hover:opacity-80 transition-opacity"
+      >
         lieblings
       </Link>
 
-      {/* Navigation links */}
-      <div className="hidden md:flex items-center gap-1">
+      {/* Center nav links */}
+      <div className="hidden md:flex items-center gap-1 bg-muted/50 rounded-lg p-0.5">
         {navLinks.map((link) => {
-          const isActive = pathname.startsWith(link.href);
+          const isActive =
+            link.href === "/dashboard"
+              ? pathname === "/dashboard"
+              : pathname.startsWith(link.href);
           return (
             <Button
               key={link.href}
               variant={isActive ? "default" : "ghost"}
               size="sm"
               asChild
+              className={
+                isActive
+                  ? ""
+                  : "hover:bg-background/80 text-muted-foreground hover:text-foreground"
+              }
             >
               <Link href={link.href}>{link.label}</Link>
             </Button>
@@ -72,28 +82,40 @@ export function Nav({ user }: NavProps) {
         })}
       </div>
 
-      {/* User menu */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-            <Avatar className="h-8 w-8">
-              <AvatarImage src={user.avatar_url ?? undefined} alt={user.display_name} />
-              <AvatarFallback>{initials}</AvatarFallback>
-            </Avatar>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
-          <div className="px-2 py-1.5">
-            <p className="text-sm font-medium">{user.display_name}</p>
-          </div>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem asChild>
-            <Link href="/settings">Settings</Link>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={handleLogout}>Log out</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {/* Right: friend requests + user menu */}
+      <div className="flex items-center gap-1">
+        <FriendRequestsDropdown userId={user.id} />
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              className="relative h-8 w-8 rounded-full ring-2 ring-transparent hover:ring-primary/20 transition-all"
+            >
+              <Avatar className="h-8 w-8">
+                <AvatarImage
+                  src={user.avatar_url ?? undefined}
+                  alt={user.display_name}
+                />
+                <AvatarFallback className="text-[10px]">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <div className="px-2 py-1.5">
+              <p className="text-sm font-medium">{user.display_name}</p>
+            </div>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link href="/settings">Settings</Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleLogout}>Log out</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </nav>
   );
 }
