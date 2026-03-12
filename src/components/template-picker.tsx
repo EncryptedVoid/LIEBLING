@@ -47,7 +47,6 @@ export function TemplatePicker({
       } = await supabase.auth.getUser();
       if (!user) throw new Error("Not logged in.");
 
-      // Create collection
       const { data: col, error: colErr } = await supabase
         .from("collections")
         .insert({ user_id: user.id, name: template.name })
@@ -55,7 +54,6 @@ export function TemplatePicker({
         .single();
       if (colErr) throw colErr;
 
-      // Create placeholder items
       const itemInserts = template.items.map((ti) => ({
         user_id: user.id,
         name: ti.name,
@@ -69,7 +67,6 @@ export function TemplatePicker({
         .select("id");
       if (itemErr) throw itemErr;
 
-      // Link items to collection
       if (newItems && newItems.length > 0) {
         const links = newItems.map((item) => ({
           item_id: item.id,
@@ -81,9 +78,9 @@ export function TemplatePicker({
         if (linkErr) throw linkErr;
       }
 
-      toast.success(`"${template.name}" collection created with ${template.items.length} placeholder items.`);
+      toast.success(`"${template.name}" collection created with ${template.items.length} items.`);
       setSelected(null);
-      onOpenChange(false);
+      onOpenChange(false); // Close this dialog
       onCreated?.();
     } catch (err: any) {
       toast.error(err.message || "Something went wrong.");
@@ -93,7 +90,7 @@ export function TemplatePicker({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) setSelected(null); }}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -101,12 +98,11 @@ export function TemplatePicker({
             Start from a template
           </DialogTitle>
           <DialogDescription>
-            Pick a template to create a collection with placeholder items you
-            can fill in.
+            Pick a template to create a collection with placeholder items.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-2 gap-2 mt-2 max-h-[50vh] overflow-y-auto pr-1">
+        <div className="grid grid-cols-2 gap-2 mt-2 max-h-[50vh] overflow-y-auto pr-1 scrollbar-thin">
           {COLLECTION_TEMPLATES.map((template) => {
             const isSelected = selected === template.id;
             return (
@@ -140,21 +136,10 @@ export function TemplatePicker({
         </div>
 
         <div className="flex gap-2 mt-2">
-          <Button
-            variant="outline"
-            className="flex-1"
-            onClick={() => {
-              setSelected(null);
-              onOpenChange(false);
-            }}
-          >
+          <Button variant="outline" className="flex-1" onClick={() => { setSelected(null); onOpenChange(false); }}>
             Cancel
           </Button>
-          <Button
-            className="flex-1"
-            onClick={handleCreate}
-            disabled={!selected || creating}
-          >
+          <Button className="flex-1" onClick={handleCreate} disabled={!selected || creating}>
             {creating ? "Creating..." : "Create collection"}
           </Button>
         </div>

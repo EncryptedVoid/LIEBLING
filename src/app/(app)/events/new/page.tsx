@@ -2,14 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { format } from "date-fns";
+import { format, formatDistanceToNow, isFuture } from "date-fns";
 import { createClient } from "@/lib/supabase/client";
+import { MapPin, CalendarDays } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
+import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
@@ -38,183 +40,168 @@ export default function NewEventPage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    supabase
-      .from("collections")
-      .select("*")
-      .order("name")
-      .then(({ data }) => setCollections(data ?? []));
+    supabase.from("collections").select("*").order("name").then(({ data }) => setCollections(data ?? []));
   }, []);
 
+  // Auto-set collection name from event title
+  useEffect(() => {
+    if (collectionId === "new" && title.trim() && !newCollectionName) {
+      setNewCollectionName(title.trim());
+    }
+  }, [title, collectionId]);
+
   async function handleSave() {
-    if (!title.trim()) {
-      toast.error("Event needs a title.");
-      return;
-    }
-    if (!date) {
-      toast.error("Pick a date.");
-      return;
-    }
-
+    if (!title.trim()) { toast.error("Event needs a title."); return; }
+    if (!date) { toast.error("Pick a date."); return; }
     setSaving(true);
-
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not logged in.");
 
       let linkedCollectionId: string | null = null;
-
-      // Create new collection if needed
       if (collectionId === "new" && newCollectionName.trim()) {
-        const { data, error } = await supabase
-          .from("collections")
-          .insert({ user_id: user.id, name: newCollectionName.trim() })
-          .select("id")
-          .single();
+        const { data, error } = await supabase.from("collections").insert({ user_id: user.id, name: newCollectionName.trim() }).select("id").single();
         if (error) throw error;
         linkedCollectionId = data.id;
       } else if (collectionId !== "new" && collectionId !== "none") {
         linkedCollectionId = collectionId;
       }
 
-      // Create event
       const { error } = await supabase.from("events").insert({
-        user_id: user.id,
-        title: title.trim(),
-        description: description.trim() || null,
-        date: format(date, "yyyy-MM-dd"),
-        time: time || null,
-        location: location.trim() || null,
+        user_id: user.id, title: title.trim(), description: description.trim() || null,
+        date: format(date, "yyyy-MM-dd"), time: time || null, location: location.trim() || null,
         collection_id: linkedCollectionId,
       });
-
       if (error) throw error;
-
       toast.success("Event created!");
       router.push("/events");
-    } catch (err: any) {
-      toast.error(err.message || "Couldn't create event.");
-    } finally {
-      setSaving(false);
-    }
+    } catch (err: any) { toast.error(err.message || "Couldn't create event."); }
+    finally { setSaving(false); }
   }
 
+  const previewDate = date ? new Date(date) : null;
+
   return (
-    <div className="max-w-lg mx-auto">
+    <div className="page-enter max-w-3xl mx-auto">
       <h1 className="text-2xl font-semibold tracking-tight">New event</h1>
-      <p className="text-muted-foreground mt-1">
-        Create an event and link a wishlist collection to it.
-      </p>
+      <p className="text-muted-foreground mt-1 text-xs">Create an event and link a wishlist collection to it.</p>
 
-      <Card className="mt-8">
-        <CardHeader>
-          <CardTitle className="text-base">Event details</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          {/* Title */}
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="title">Title</Label>
-            <Input
-              id="title"
-              placeholder="e.g. My 30th Birthday"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-          </div>
-
-          {/* Description */}
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              placeholder="Optional details about the event..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-            />
-          </div>
-
-          {/* Date */}
-          <div className="flex flex-col gap-1.5">
-            <Label>Date</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="justify-start font-normal">
-                  {date ? format(date, "MMMM d, yyyy") : "Pick a date"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={date}
-                  onSelect={setDate}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          {/* Time */}
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="time">Time</Label>
-            <Input
-              id="time"
-              type="time"
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-            />
-          </div>
-
-          {/* Location */}
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="location">Location</Label>
-            <Input
-              id="location"
-              placeholder="e.g. Our house, The Grand Hotel"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-            />
-          </div>
-
-          {/* Collection */}
-          <div className="flex flex-col gap-1.5">
-            <Label>Wishlist collection</Label>
-            <Select value={collectionId} onValueChange={setCollectionId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Link a collection" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="new">Create new collection</SelectItem>
-                <SelectItem value="none">No collection</SelectItem>
-                {collections.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* New collection name — shown only when "Create new" is selected */}
-          {collectionId === "new" && (
+      <div className="flex gap-6 mt-8">
+        {/* Form */}
+        <Card className="flex-1">
+          <CardHeader><CardTitle className="text-base">Event details</CardTitle></CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            {/* Title */}
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="newCollection">Collection name</Label>
-              <Input
-                id="newCollection"
-                placeholder="e.g. Birthday Wishes"
-                value={newCollectionName}
-                onChange={(e) => setNewCollectionName(e.target.value)}
-              />
+              <Label htmlFor="title">Title</Label>
+              <Input id="title" placeholder="e.g. My 30th Birthday" value={title} onChange={(e) => setTitle(e.target.value)} />
             </div>
-          )}
 
-          <Button onClick={handleSave} disabled={saving} className="mt-2">
-            {saving ? "Creating..." : "Create event"}
-          </Button>
-        </CardContent>
-      </Card>
+            {/* Description */}
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="description">Description</Label>
+              <Textarea id="description" placeholder="Optional details..." value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
+            </div>
+
+            {/* Date + Time — same row */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label>Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="justify-start font-normal">
+                      {date ? format(date, "MMM d, yyyy") : "Pick a date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={date} onSelect={setDate} initialFocus />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="time">Time</Label>
+                <Input id="time" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+              </div>
+            </div>
+
+            {/* Location */}
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="location">Location</Label>
+              <Input id="location" placeholder="e.g. Our house, The Grand Hotel" value={location} onChange={(e) => setLocation(e.target.value)} />
+            </div>
+
+            {/* Collection — choice + name on same row */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label>Wishlist collection</Label>
+                <Select value={collectionId} onValueChange={(v) => {
+                  setCollectionId(v);
+                  if (v === "new" && title.trim()) setNewCollectionName(title.trim());
+                }}>
+                  <SelectTrigger><SelectValue placeholder="Link a collection" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="new">Create new collection</SelectItem>
+                    <SelectItem value="none">No collection</SelectItem>
+                    {collections.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="newCollection">Collection name</Label>
+                <Input
+                  id="newCollection"
+                  placeholder="e.g. Birthday Wishes"
+                  value={collectionId === "new" ? newCollectionName : ""}
+                  onChange={(e) => setNewCollectionName(e.target.value)}
+                  disabled={collectionId !== "new"}
+                  className={collectionId !== "new" ? "opacity-40" : ""}
+                />
+              </div>
+            </div>
+
+            <Button onClick={handleSave} disabled={saving} className="mt-2 shadow-sm">
+              {saving ? "Creating..." : "Create event"}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Live preview */}
+        <div className="hidden md:block w-56 shrink-0">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-medium mb-3">Preview</p>
+          <Card className="overflow-hidden shadow-sm card-gradient-accent">
+            <div className="h-0.5 bg-gradient-to-r from-primary/60 via-primary/20 to-transparent" />
+            <CardContent className="p-4 flex gap-3">
+              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary/15 to-primary/5 flex flex-col items-center justify-center shrink-0 shadow-inner text-primary">
+                {previewDate ? (
+                  <>
+                    <span className="text-[9px] font-medium uppercase leading-none">{format(previewDate, "MMM")}</span>
+                    <span className="text-base font-bold leading-tight">{format(previewDate, "d")}</span>
+                  </>
+                ) : (
+                  <CalendarDays className="h-5 w-5 opacity-40" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-medium text-xs leading-snug truncate">{title || "Event title"}</h3>
+                {previewDate && (
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {format(previewDate, "EEE, MMM d")}{time && ` at ${time}`}
+                  </p>
+                )}
+                {location && (
+                  <p className="text-[10px] text-muted-foreground flex items-center gap-0.5 mt-0.5">
+                    <MapPin className="h-2 w-2" />{location}
+                  </p>
+                )}
+                {previewDate && isFuture(previewDate) && (
+                  <Badge className="mt-1.5 text-[9px] shadow-sm">{formatDistanceToNow(previewDate, { addSuffix: true })}</Badge>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+          <p className="text-[10px] text-muted-foreground text-center mt-2">How it&apos;ll look</p>
+        </div>
+      </div>
     </div>
   );
 }
