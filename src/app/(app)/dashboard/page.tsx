@@ -288,12 +288,12 @@ export default function DashboardPage() {
               {claimedItems.map((item) => (
                 <div
                   key={item.id}
-                  className="group rounded-xl ring-1 ring-foreground/5 overflow-hidden bg-card hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-0.5 transition-all duration-300 card-gradient-accent"
+                  className={`group rounded-xl ring-1 ring-foreground/5 overflow-hidden bg-card hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-0.5 transition-all duration-300 card-gradient-accent ${item.gifted_at ? "opacity-60" : ""}`}
                 >
                   {/* Image */}
                   <div className="aspect-square bg-muted/40 relative overflow-hidden">
                     {item.image_url ? (
-                      <img src={item.image_url} alt="" className="h-full w-full object-contain p-3 transition-transform duration-300 group-hover:scale-105" />
+                      <img src={item.image_url} alt="" className={`h-full w-full object-contain p-3 transition-transform duration-300 group-hover:scale-105 ${item.gifted_at ? "grayscale" : ""}`} />
                     ) : (
                       <div className="h-full w-full flex items-center justify-center">
                         <Gift className="h-8 w-8 text-muted-foreground/30" />
@@ -304,6 +304,14 @@ export default function DashboardPage() {
                       <div className="absolute bottom-2 left-2">
                         <Badge variant="secondary" className="bg-background/90 backdrop-blur-sm shadow-sm font-mono text-[11px]">
                           ${item.price.toFixed(2)}
+                        </Badge>
+                      </div>
+                    )}
+                    {/* Gifted/received overlay */}
+                    {item.gifted_at && (
+                      <div className="absolute inset-0 bg-background/40 flex items-center justify-center">
+                        <Badge variant="outline" className="shadow-sm gap-1 bg-background/80 backdrop-blur-sm">
+                          <Gift className="h-2.5 w-2.5" /> Delivered
                         </Badge>
                       </div>
                     )}

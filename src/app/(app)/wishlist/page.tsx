@@ -45,6 +45,7 @@ import { ItemGrid } from "@/components/item-grid";
 import { AddItemDialog } from "@/components/add-item-dialog";
 import { ProfileCarousel } from "@/components/profile-carousel";
 import { TemplatePicker } from "@/components/template-picker";
+import { EmojiPicker } from "@/components/emoji-picker";
 import { THEME_CSS } from "@/lib/theme-colors";
 import { toast } from "sonner";
 
@@ -75,11 +76,13 @@ export default function WishlistPage() {
 
   const [addCollectionOpen, setAddCollectionOpen] = useState(false);
   const [newCollectionName, setNewCollectionName] = useState("");
+  const [newCollectionEmoji, setNewCollectionEmoji] = useState<string | null>(null);
   const [savingCollection, setSavingCollection] = useState(false);
 
   const [editCollectionOpen, setEditCollectionOpen] = useState(false);
   const [editingCollection, setEditingCollection] = useState<Collection | null>(null);
   const [editCollectionName, setEditCollectionName] = useState("");
+  const [editCollectionEmoji, setEditCollectionEmoji] = useState<string | null>(null);
   const [savingEditCollection, setSavingEditCollection] = useState(false);
 
   const [deleteCollectionOpen, setDeleteCollectionOpen] = useState(false);
@@ -182,7 +185,10 @@ export default function WishlistPage() {
       case "price-high": result = [...result].sort((a, b) => (b.price ?? 0) - (a.price ?? 0)); break;
       case "name": result = [...result].sort((a, b) => a.name.localeCompare(b.name)); break;
     }
-    return result;
+    // Sort gifted items to end
+    const active = result.filter((i) => !i.gifted_at);
+    const gifted = result.filter((i) => !!i.gifted_at);
+    return [...active, ...gifted];
   }, [items, activeCollectionId, searchQuery, sortBy]);
 
   function getCount(colId: string | null): number {
@@ -192,29 +198,31 @@ export default function WishlistPage() {
 
   function handleDeleteItem(id: string) { setItems((prev) => prev.filter((item) => item.id !== id)); }
   function handleEditItem(item: Item) { setEditingItem(item); setAddItemOpen(true); }
+  function handleGiftedToggle() { fetchData(activeUserId); }
 
   // ── Collection CRUD ────────────────────────────────────
   async function handleCreateCollection() {
     if (!newCollectionName.trim()) return;
     setSavingCollection(true);
-    const { error } = await supabase.from("collections").insert({ user_id: currentUser!.id, name: newCollectionName.trim() });
+    const { error } = await supabase.from("collections").insert({ user_id: currentUser!.id, name: newCollectionName.trim(), emoji: newCollectionEmoji });
     if (error) { toast.error("Couldn't create collection."); } else {
       toast.success(`"${newCollectionName.trim()}" created.`);
       setNewCollectionName("");
+      setNewCollectionEmoji(null);
       setAddCollectionOpen(false);
       fetchData(activeUserId);
     }
     setSavingCollection(false);
   }
 
-  function openEditCollection(col: Collection) { setEditingCollection(col); setEditCollectionName(col.name); setEditCollectionOpen(true); }
+  function openEditCollection(col: Collection) { setEditingCollection(col); setEditCollectionName(col.name); setEditCollectionEmoji(col.emoji ?? null); setEditCollectionOpen(true); }
 
   async function handleSaveEditCollection() {
     if (!editCollectionName.trim() || !editingCollection) return;
     setSavingEditCollection(true);
-    const { error } = await supabase.from("collections").update({ name: editCollectionName.trim() }).eq("id", editingCollection.id);
+    const { error } = await supabase.from("collections").update({ name: editCollectionName.trim(), emoji: editCollectionEmoji }).eq("id", editingCollection.id);
     if (error) { toast.error("Couldn't rename collection."); } else {
-      toast.success("Collection renamed.");
+      toast.success("Collection updated.");
       setEditCollectionOpen(false);
       setEditingCollection(null);
       fetchData(activeUserId);
@@ -324,13 +332,19 @@ export default function WishlistPage() {
                   onClick={() => setActiveCollectionId(col.id)}
                   className="flex-1 flex items-center justify-between px-3 py-2 text-xs text-left min-w-0"
                 >
-                  <span className="truncate">{col.name}</span>
+                  <span className="truncate flex items-center gap-1.5">
+                    {(col.emoji || (col.is_system ? "🎁" : null)) && (
+                      <span className="text-sm">{col.emoji || "🎁"}</span>
+                    )}
+                    {col.name}
+                  </span>
                   <span className={`text-[10px] shrink-0 ml-2 ${activeCollectionId === col.id ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
                     {getCount(col.id)}
                   </span>
                 </button>
 
-                {isOwnWishlist && (
+                {/* Only show menu for non-system collections the user owns */}
+                {isOwnWishlist && !col.is_system && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button
@@ -426,7 +440,7 @@ export default function WishlistPage() {
             </Button>
             {collections.map((col) => (
               <Button key={col.id} variant={activeCollectionId === col.id ? "default" : "outline"} size="sm" onClick={() => setActiveCollectionId(col.id)} className="whitespace-nowrap">
-                {col.name} ({getCount(col.id)})
+                {(col.emoji || (col.is_system ? "🎁" : null)) && <span className="mr-1">{col.emoji || "🎁"}</span>}{col.name} ({getCount(col.id)})
               </Button>
             ))}
           </div>
@@ -441,6 +455,7 @@ export default function WishlistPage() {
                 loading={loading}
                 onDelete={handleDeleteItem}
                 onEdit={handleEditItem}
+                onGiftedToggle={handleGiftedToggle}
                 emptyMessage={searchQuery ? "No items match your search." : activeCollectionId === null ? "No items yet. Add your first one!" : "No items in this collection."}
                 emptyVariant={searchQuery ? "search" : "items"}
               />
@@ -482,12 +497,16 @@ export default function WishlistPage() {
             </div>
           </DialogHeader>
           <div className="flex flex-col gap-4 mt-2">
-            <Input
-              placeholder="e.g. Kitchen, Books, Baby Stuff"
-              value={newCollectionName}
-              onChange={(e) => setNewCollectionName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleCreateCollection()}
-            />
+            <div className="flex gap-2">
+              <EmojiPicker value={newCollectionEmoji} onChange={setNewCollectionEmoji} />
+              <Input
+                placeholder="e.g. Kitchen, Books, Baby Stuff"
+                value={newCollectionName}
+                onChange={(e) => setNewCollectionName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleCreateCollection()}
+                className="flex-1"
+              />
+            </div>
             <Button onClick={handleCreateCollection} disabled={savingCollection || !newCollectionName.trim()}>
               {savingCollection ? "Creating..." : "Create"}
             </Button>
@@ -505,11 +524,14 @@ export default function WishlistPage() {
       {/* Edit collection dialog */}
       <Dialog open={editCollectionOpen} onOpenChange={(open) => { setEditCollectionOpen(open); if (!open) setEditingCollection(null); }}>
         <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>Rename collection</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Edit collection</DialogTitle></DialogHeader>
           <div className="flex flex-col gap-4 mt-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="editColName">Name</Label>
-              <Input id="editColName" value={editCollectionName} onChange={(e) => setEditCollectionName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSaveEditCollection()} />
+              <div className="flex gap-2">
+                <EmojiPicker value={editCollectionEmoji} onChange={setEditCollectionEmoji} />
+                <Input id="editColName" value={editCollectionName} onChange={(e) => setEditCollectionName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSaveEditCollection()} className="flex-1" />
+              </div>
             </div>
             <Button onClick={handleSaveEditCollection} disabled={savingEditCollection || !editCollectionName.trim()}>
               {savingEditCollection ? "Saving..." : "Save"}

@@ -2,7 +2,14 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Pencil, Trash2, ExternalLink, ShoppingBag } from "lucide-react";
+import {
+  Pencil,
+  Trash2,
+  ExternalLink,
+  ShoppingBag,
+  Gift,
+  Undo2,
+} from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,6 +25,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { getOrCreateGiftedCollection } from "@/lib/gifted-collection";
 
 import type { Item } from "@/lib/types";
 
@@ -28,6 +36,7 @@ type ItemCardProps =
       viewMode?: "grid" | "list";
       onDelete?: (id: string) => void;
       onEdit?: (item: Item) => void;
+      onGiftedToggle?: () => void;
     }
   | {
       item: Item;
@@ -44,6 +53,8 @@ export function ItemCard(props: ItemCardProps) {
   const [loading, setLoading] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
+  const isGifted = !!item.gifted_at;
+
   async function handleDelete() {
     if (variant !== "owner") return;
     setLoading(true);
@@ -58,12 +69,91 @@ export function ItemCard(props: ItemCardProps) {
     setShowDeleteDialog(false);
   }
 
+  async function handleMarkGifted() {
+    if (variant !== "owner") return;
+    setLoading(true);
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not logged in.");
+
+      // Get or create the Gifted collection
+      const giftedColId = await getOrCreateGiftedCollection(supabase, user.id);
+
+      // Set gifted_at timestamp
+      const { error: updateErr } = await supabase
+        .from("items")
+        .update({ gifted_at: new Date().toISOString() })
+        .eq("id", item.id);
+      if (updateErr) throw updateErr;
+
+      // Add to Gifted collection if not already there
+      if (!item.collection_ids?.includes(giftedColId)) {
+        const { error: linkErr } = await supabase
+          .from("item_collections")
+          .insert({ item_id: item.id, collection_id: giftedColId });
+        if (linkErr && !linkErr.message.includes("duplicate")) throw linkErr;
+      }
+
+      toast.success("Marked as received!");
+      props.onGiftedToggle?.();
+    } catch (err: any) {
+      toast.error(err.message || "Couldn't mark as gifted.");
+    }
+    setLoading(false);
+  }
+
+  async function handleUnmarkGifted() {
+    if (variant !== "owner") return;
+    setLoading(true);
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not logged in.");
+
+      // Clear gifted_at
+      const { error: updateErr } = await supabase
+        .from("items")
+        .update({ gifted_at: null })
+        .eq("id", item.id);
+      if (updateErr) throw updateErr;
+
+      // Remove from Gifted collection
+      const { data: giftedCol } = await supabase
+        .from("collections")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("is_system", true)
+        .single();
+
+      if (giftedCol) {
+        await supabase
+          .from("item_collections")
+          .delete()
+          .eq("item_id", item.id)
+          .eq("collection_id", giftedCol.id);
+      }
+
+      toast.success("Restored to wishlist.");
+      props.onGiftedToggle?.();
+    } catch (err: any) {
+      toast.error(err.message || "Couldn't restore item.");
+    }
+    setLoading(false);
+  }
+
   async function handleClaim() {
     if (variant !== "friend") return;
     setLoading(true);
     const { error } = await supabase.rpc("claim_item", { item_id: item.id });
     if (error) {
-      toast.error(error.message.includes("already claimed") ? "Someone just claimed this!" : "Couldn't claim item.");
+      toast.error(
+        error.message.includes("already claimed")
+          ? "Someone just claimed this!"
+          : "Couldn't claim item."
+      );
     } else {
       toast.success("Claimed! They won't see who it's from.");
       props.onClaimChange?.();
@@ -84,8 +174,8 @@ export function ItemCard(props: ItemCardProps) {
     setLoading(false);
   }
 
-  const isClaimedByMe = variant === "friend" && item.claimed_by === props.currentUserId;
-  const isClaimedByOther = variant === "friend" && item.is_claimed && !isClaimedByMe;
+  const isClaimedByMe =
+    variant === "friend" && item.claimed_by === props.currentUserId;
 
   function openLink() {
     window.open(item.link, "_blank", "noopener,noreferrer");
@@ -97,12 +187,18 @@ export function ItemCard(props: ItemCardProps) {
       <>
         <div
           onClick={openLink}
-          className="group flex items-center gap-3 rounded-xl p-2.5 cursor-pointer ring-1 ring-foreground/5 bg-card hover:shadow-md hover:shadow-primary/5 hover:ring-primary/20 transition-all duration-200"
+          className={`group flex items-center gap-3 rounded-xl p-2.5 cursor-pointer ring-1 ring-foreground/5 bg-card hover:shadow-md hover:shadow-primary/5 hover:ring-primary/20 transition-all duration-200 ${
+            isGifted ? "opacity-50" : ""
+          }`}
         >
           {/* Thumbnail */}
           <div className="h-14 w-14 rounded-lg bg-muted/50 overflow-hidden shrink-0 relative">
             {item.image_url ? (
-              <img src={item.image_url} alt="" className="h-full w-full object-contain p-1.5" />
+              <img
+                src={item.image_url}
+                alt=""
+                className={`h-full w-full object-contain p-1.5 ${isGifted ? "grayscale" : ""}`}
+              />
             ) : (
               <div className="h-full w-full flex items-center justify-center">
                 <ShoppingBag className="h-5 w-5 text-muted-foreground/30" />
@@ -110,58 +206,130 @@ export function ItemCard(props: ItemCardProps) {
             )}
             {variant === "friend" && item.is_claimed && (
               <div className="absolute inset-0 bg-background/60 backdrop-blur-[1px] flex items-center justify-center">
-                <Badge variant={isClaimedByMe ? "default" : "secondary"} className="text-[9px] px-1.5 py-0">
+                <Badge
+                  variant={isClaimedByMe ? "default" : "secondary"}
+                  className="text-[9px] px-1.5 py-0"
+                >
                   {isClaimedByMe ? "Yours" : "Taken"}
                 </Badge>
+              </div>
+            )}
+            {isGifted && (
+              <div className="absolute inset-0 bg-background/40 flex items-center justify-center">
+                <Gift className="h-4 w-4 text-muted-foreground/50" />
               </div>
             )}
           </div>
 
           {/* Info */}
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium truncate group-hover:text-primary transition-colors">{item.name}</p>
+            <div className="flex items-center gap-1.5">
+              <p
+                className={`text-xs font-medium truncate group-hover:text-primary transition-colors ${
+                  isGifted ? "line-through text-muted-foreground" : ""
+                }`}
+              >
+                {item.name}
+              </p>
+              {isGifted && (
+                <Badge variant="outline" className="text-[9px] shrink-0 gap-0.5">
+                  <Gift className="h-2 w-2" /> Received
+                </Badge>
+              )}
+            </div>
             {item.price && (
-              <p className="text-sm font-bold text-primary mt-0.5 font-mono">${item.price.toFixed(2)}</p>
+              <p
+                className={`text-sm font-bold mt-0.5 font-mono ${
+                  isGifted ? "text-muted-foreground" : "text-primary"
+                }`}
+              >
+                ${item.price.toFixed(2)}
+              </p>
             )}
           </div>
 
           {/* Actions */}
-          <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="flex items-center gap-1 shrink-0"
+            onClick={(e) => e.stopPropagation()}
+          >
             {variant === "owner" && (
               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button variant="ghost" size="icon-xs" onClick={() => props.onEdit?.(item)}>
-                  <Pencil className="h-3 w-3" />
+                {!isGifted && (
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    onClick={() => props.onEdit?.(item)}
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  onClick={isGifted ? handleUnmarkGifted : handleMarkGifted}
+                  disabled={loading}
+                  title={isGifted ? "Mark as not received" : "Mark as received"}
+                >
+                  {isGifted ? (
+                    <Undo2 className="h-3 w-3" />
+                  ) : (
+                    <Gift className="h-3 w-3" />
+                  )}
                 </Button>
-                <Button variant="ghost" size="icon-xs" className="text-destructive hover:bg-destructive/10" onClick={() => setShowDeleteDialog(true)}>
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  className="text-destructive hover:bg-destructive/10"
+                  onClick={() => setShowDeleteDialog(true)}
+                >
                   <Trash2 className="h-3 w-3" />
                 </Button>
               </div>
             )}
-            {variant === "friend" && !item.is_claimed && (
+            {variant === "friend" && !item.is_claimed && !isGifted && (
               <Button size="xs" onClick={handleClaim} disabled={loading}>
                 {loading ? "..." : "Claim"}
               </Button>
             )}
             {variant === "friend" && isClaimedByMe && (
-              <Button variant="outline" size="xs" onClick={handleUnclaim} disabled={loading}>
+              <Button
+                variant="outline"
+                size="xs"
+                onClick={handleUnclaim}
+                disabled={loading}
+              >
                 Unclaim
               </Button>
             )}
-            <Button variant="ghost" size="icon-xs" className="opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              className="opacity-0 group-hover:opacity-100 transition-opacity"
+            >
               <ExternalLink className="h-3 w-3" />
             </Button>
           </div>
         </div>
 
-        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialog
+          open={showDeleteDialog}
+          onOpenChange={setShowDeleteDialog}
+        >
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete &quot;{item.name}&quot;?</AlertDialogTitle>
-              <AlertDialogDescription>This can&apos;t be undone.</AlertDialogDescription>
+              <AlertDialogTitle>
+                Delete &quot;{item.name}&quot;?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                This can&apos;t be undone.
+              </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDelete} disabled={loading}>Delete</AlertDialogAction>
+              <AlertDialogAction onClick={handleDelete} disabled={loading}>
+                Delete
+              </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
@@ -172,7 +340,11 @@ export function ItemCard(props: ItemCardProps) {
   // ── GRID VIEW ──────────────────────────────────────────
   return (
     <>
-      <Card className="overflow-hidden group transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-1 hover:ring-primary/20 relative card-gradient-accent">
+      <Card
+        className={`overflow-hidden group transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-1 hover:ring-primary/20 relative card-gradient-accent ${
+          isGifted ? "opacity-60" : ""
+        }`}
+      >
         <div onClick={openLink} className="cursor-pointer">
           {/* Image */}
           <div className="relative overflow-hidden bg-muted/30">
@@ -181,7 +353,9 @@ export function ItemCard(props: ItemCardProps) {
                 <img
                   src={item.image_url}
                   alt={item.name}
-                  className="object-contain w-full h-full p-4 transition-transform duration-300 group-hover:scale-105"
+                  className={`object-contain w-full h-full p-4 transition-transform duration-300 group-hover:scale-105 ${
+                    isGifted ? "grayscale" : ""
+                  }`}
                 />
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground/30 gap-1.5">
@@ -191,40 +365,70 @@ export function ItemCard(props: ItemCardProps) {
             </div>
 
             {/* Claimed overlay */}
-            {variant === "friend" && item.is_claimed && (
+            {variant === "friend" && item.is_claimed && !isGifted && (
               <div className="absolute inset-0 bg-background/65 backdrop-blur-[2px] flex items-center justify-center">
-                <Badge variant={isClaimedByMe ? "default" : "secondary"} className="shadow-sm">
+                <Badge
+                  variant={isClaimedByMe ? "default" : "secondary"}
+                  className="shadow-sm"
+                >
                   {isClaimedByMe ? "You claimed this" : "Claimed"}
                 </Badge>
               </div>
             )}
 
-            {/* Owner hover actions — top right, no reserved space */}
+            {/* Gifted overlay */}
+            {isGifted && (
+              <div className="absolute inset-0 bg-background/50 flex items-center justify-center">
+                <Badge variant="outline" className="shadow-sm gap-1.5 text-xs">
+                  <Gift className="h-3 w-3" /> Received
+                </Badge>
+              </div>
+            )}
+
+            {/* Owner hover actions — top right */}
             {variant === "owner" && (
               <div
                 className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-y-1 group-hover:translate-y-0"
                 onClick={(e) => e.stopPropagation()}
               >
+                {!isGifted && (
+                  <Button
+                    variant="secondary"
+                    size="icon-xs"
+                    className="bg-background/90 backdrop-blur-sm shadow-sm hover:bg-background"
+                    onClick={() => props.onEdit?.(item)}
+                    title="Edit"
+                  >
+                    <Pencil className="h-2.5 w-2.5" />
+                  </Button>
+                )}
                 <Button
                   variant="secondary"
                   size="icon-xs"
                   className="bg-background/90 backdrop-blur-sm shadow-sm hover:bg-background"
-                  onClick={() => props.onEdit?.(item)}
+                  onClick={isGifted ? handleUnmarkGifted : handleMarkGifted}
+                  disabled={loading}
+                  title={isGifted ? "Mark as not received" : "Mark as received"}
                 >
-                  <Pencil className="h-2.5 w-2.5" />
+                  {isGifted ? (
+                    <Undo2 className="h-2.5 w-2.5" />
+                  ) : (
+                    <Gift className="h-2.5 w-2.5" />
+                  )}
                 </Button>
                 <Button
                   variant="secondary"
                   size="icon-xs"
                   className="bg-background/90 backdrop-blur-sm shadow-sm text-destructive hover:bg-destructive/10"
                   onClick={() => setShowDeleteDialog(true)}
+                  title="Delete"
                 >
                   <Trash2 className="h-2.5 w-2.5" />
                 </Button>
               </div>
             )}
 
-            {/* External link icon — top right for friends */}
+            {/* External link icon — friends */}
             {variant === "friend" && (
               <div className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-y-1 group-hover:translate-y-0">
                 <div className="h-6 w-6 rounded-full bg-background/90 backdrop-blur-sm shadow-sm flex items-center justify-center">
@@ -234,23 +438,35 @@ export function ItemCard(props: ItemCardProps) {
             )}
           </div>
 
-          {/* Info — compact */}
+          {/* Info */}
           <CardContent className="p-3">
-            {/* Price — prominent */}
             {item.price && (
-              <p className="text-base font-bold text-primary font-mono mb-0.5">
+              <p
+                className={`text-base font-bold font-mono mb-0.5 ${
+                  isGifted ? "text-muted-foreground line-through" : "text-primary"
+                }`}
+              >
                 ${item.price.toFixed(2)}
               </p>
             )}
-            <h3 className="text-xs font-medium leading-snug line-clamp-2 group-hover:text-primary transition-colors duration-200">
+            <h3
+              className={`text-xs font-medium leading-snug line-clamp-2 transition-colors duration-200 ${
+                isGifted
+                  ? "text-muted-foreground line-through"
+                  : "group-hover:text-primary"
+              }`}
+            >
               {item.name}
             </h3>
           </CardContent>
         </div>
 
-        {/* Friend claim button — bottom, no empty space when not needed */}
-        {variant === "friend" && !item.is_claimed && (
-          <div className="px-3 pb-3 pt-0" onClick={(e) => e.stopPropagation()}>
+        {/* Friend claim button */}
+        {variant === "friend" && !item.is_claimed && !isGifted && (
+          <div
+            className="px-3 pb-3 pt-0"
+            onClick={(e) => e.stopPropagation()}
+          >
             <Button
               size="sm"
               className="w-full h-7 text-[11px] shadow-sm"
@@ -261,8 +477,11 @@ export function ItemCard(props: ItemCardProps) {
             </Button>
           </div>
         )}
-        {variant === "friend" && isClaimedByMe && (
-          <div className="px-3 pb-3 pt-0" onClick={(e) => e.stopPropagation()}>
+        {variant === "friend" && isClaimedByMe && !isGifted && (
+          <div
+            className="px-3 pb-3 pt-0"
+            onClick={(e) => e.stopPropagation()}
+          >
             <Button
               variant="outline"
               size="sm"
@@ -279,8 +498,12 @@ export function ItemCard(props: ItemCardProps) {
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete &quot;{item.name}&quot;?</AlertDialogTitle>
-            <AlertDialogDescription>This item may have been claimed. Deleting can&apos;t be undone.</AlertDialogDescription>
+            <AlertDialogTitle>
+              Delete &quot;{item.name}&quot;?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This item may have been claimed. Deleting can&apos;t be undone.
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>

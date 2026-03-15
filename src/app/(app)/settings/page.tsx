@@ -36,7 +36,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { AvatarUpload } from "@/components/avatar-upload";
-import { FriendCodeShare } from "@/components/friend-code-share";
 import { toast } from "sonner";
 
 export default function SettingsPage() {
@@ -45,7 +44,6 @@ export default function SettingsPage() {
 
   const [displayName, setDisplayName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [friendCode, setFriendCode] = useState("");
   const [birthday, setBirthday] = useState<Date | undefined>();
   const [themeMode, setThemeMode] = useState<"light" | "dark">("light");
   const [themeColor, setThemeColor] = useState("zinc");
@@ -55,23 +53,16 @@ export default function SettingsPage() {
 
   useEffect(() => {
     async function load() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-
       const { data } = await supabase
         .from("users")
-        .select(
-          "display_name, avatar_url, friend_code, birthday, theme_mode, theme_color"
-        )
+        .select("display_name, avatar_url, birthday, theme_mode, theme_color")
         .eq("id", user.id)
         .single();
-
       if (data) {
         setDisplayName(data.display_name);
         setAvatarUrl(data.avatar_url);
-        setFriendCode(data.friend_code);
         setBirthday(data.birthday ? new Date(data.birthday) : undefined);
         setThemeMode(data.theme_mode);
         setThemeColor(data.theme_color);
@@ -83,44 +74,23 @@ export default function SettingsPage() {
 
   async function handleSaveProfile() {
     setSavingProfile(true);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
+    const { data: { user } } = await supabase.auth.getUser();
     const { error } = await supabase
       .from("users")
-      .update({
-        display_name: displayName.trim(),
-        birthday: birthday ? format(birthday, "yyyy-MM-dd") : null,
-      })
+      .update({ display_name: displayName.trim(), birthday: birthday ? format(birthday, "yyyy-MM-dd") : null })
       .eq("id", user!.id);
-
-    if (error) {
-      toast.error("Couldn't save profile.");
-    } else {
-      toast.success("Profile updated.");
-      router.refresh();
-    }
+    if (error) { toast.error("Couldn't save profile."); } else { toast.success("Profile updated."); router.refresh(); }
     setSavingProfile(false);
   }
 
   async function handleSaveTheme() {
     setSavingTheme(true);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
+    const { data: { user } } = await supabase.auth.getUser();
     const { error } = await supabase
       .from("users")
       .update({ theme_mode: themeMode, theme_color: themeColor })
       .eq("id", user!.id);
-
-    if (error) {
-      toast.error("Couldn't save theme.");
-    } else {
-      toast.success("Theme updated. Refreshing...");
-      router.refresh();
-    }
+    if (error) { toast.error("Couldn't save theme."); } else { toast.success("Theme updated. Refreshing..."); router.refresh(); }
     setSavingTheme(false);
   }
 
@@ -131,153 +101,136 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="max-w-lg mx-auto">
+      <div className="max-w-3xl mx-auto page-enter">
         <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <div className="mt-8 h-64 rounded-xl bg-muted animate-pulse" />
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="h-64 rounded-xl skeleton-shimmer" />
+          <div className="h-64 rounded-xl skeleton-shimmer" />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-lg mx-auto">
+    <div className="max-w-3xl mx-auto page-enter">
       <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+      <p className="text-xs text-muted-foreground mt-1">Manage your profile and preferences.</p>
 
-      {/* ── Profile ────────────────────────────────────── */}
-      <Card className="mt-8">
-        <CardHeader>
-          <CardTitle className="text-sm">Profile</CardTitle>
-          <CardDescription>Your photo, name, and birthday.</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-5">
-          {/* Avatar upload */}
-          <AvatarUpload
-            currentUrl={avatarUrl}
-            displayName={displayName}
-            onUploaded={(url) => {
-              setAvatarUrl(url);
-              router.refresh();
-            }}
-            size="lg"
-          />
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="displayName">Display name</Label>
-            <Input
-              id="displayName"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
+      {/* ── Side-by-side: Profile + Appearance ─────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+        {/* Profile */}
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-sm">Profile</CardTitle>
+            <CardDescription>Your photo, name, and birthday.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-5">
+            <AvatarUpload
+              currentUrl={avatarUrl}
+              displayName={displayName}
+              onUploaded={(url) => { setAvatarUrl(url); router.refresh(); }}
+              size="lg"
             />
-          </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label>Birthday</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="justify-start font-normal"
-                >
-                  {birthday ? format(birthday, "MMMM d, yyyy") : "Not set"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={birthday}
-                  onSelect={setBirthday}
-                  captionLayout="dropdown"
-                  fromYear={1920}
-                  toYear={new Date().getFullYear()}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          <Button onClick={handleSaveProfile} disabled={savingProfile}>
-            {savingProfile ? "Saving..." : "Save profile"}
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* ── Appearance ─────────────────────────────────── */}
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle className="text-sm">Appearance</CardTitle>
-          <CardDescription>Customize how Lieblings looks.</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-6">
-          <div className="flex flex-col gap-2">
-            <Label>Mode</Label>
-            <div className="flex gap-3">
-              {(["light", "dark"] as const).map((mode) => (
-                <button
-                  key={mode}
-                  onClick={() => setThemeMode(mode)}
-                  className={`flex-1 flex items-center justify-center gap-2 rounded-xl border-2 p-3 transition-all ${
-                    themeMode === mode
-                      ? "border-primary bg-primary/5 shadow-sm"
-                      : "border-muted hover:border-muted-foreground/20"
-                  }`}
-                >
-                  {mode === "light" ? (
-                    <Sun className="h-4 w-4" />
-                  ) : (
-                    <Moon className="h-4 w-4" />
-                  )}
-                  <span className="text-xs font-medium capitalize">
-                    {mode}
-                  </span>
-                  {themeMode === mode && (
-                    <Check className="h-3 w-3 text-primary" />
-                  )}
-                </button>
-              ))}
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="displayName">Display name</Label>
+              <Input id="displayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
             </div>
-          </div>
 
-          <div className="flex flex-col gap-2">
-            <Label>Accent color</Label>
-            <div className="grid grid-cols-6 gap-2">
-              {THEME_COLORS.map((color) => (
-                <button
-                  key={color.id}
-                  onClick={() => setThemeColor(color.id)}
-                  className={`flex flex-col items-center gap-1.5 rounded-xl border-2 p-3 transition-all ${
-                    themeColor === color.id
-                      ? "border-foreground shadow-sm"
-                      : "border-muted hover:border-muted-foreground/20"
-                  }`}
-                >
-                  <div
-                    className="h-6 w-6 rounded-full shadow-inner"
-                    style={{ backgroundColor: color.preview }}
+            <div className="flex flex-col gap-1.5">
+              <Label>Birthday</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="justify-start font-normal">
+                    {birthday ? format(birthday, "MMMM d, yyyy") : "Not set"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={birthday}
+                    onSelect={setBirthday}
+                    captionLayout="dropdown"
+                    fromYear={1920}
+                    toYear={new Date().getFullYear()}
+                    initialFocus
                   />
-                  <span className="text-[10px] font-medium">{color.label}</span>
-                </button>
-              ))}
+                </PopoverContent>
+              </Popover>
             </div>
-          </div>
 
-          <Button onClick={handleSaveTheme} disabled={savingTheme}>
-            {savingTheme ? "Saving..." : "Save appearance"}
-          </Button>
-        </CardContent>
-      </Card>
+            <Button onClick={handleSaveProfile} disabled={savingProfile} className="shadow-sm">
+              {savingProfile ? "Saving..." : "Save profile"}
+            </Button>
+          </CardContent>
+        </Card>
 
-      {/* ── Friend code ────────────────────────────────── */}
-      <div className="mt-6">
-        <FriendCodeShare friendCode={friendCode} />
+        {/* Appearance */}
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-sm">Appearance</CardTitle>
+            <CardDescription>Customize how Lieblings looks.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-5">
+            {/* Mode */}
+            <div className="flex flex-col gap-2">
+              <Label>Mode</Label>
+              <div className="flex gap-3">
+                {(["light", "dark"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => setThemeMode(mode)}
+                    className={`flex-1 flex items-center justify-center gap-2 rounded-xl border-2 p-3 transition-all ${
+                      themeMode === mode
+                        ? "border-primary bg-primary/5 shadow-sm"
+                        : "border-muted hover:border-muted-foreground/20"
+                    }`}
+                  >
+                    {mode === "light" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                    <span className="text-xs font-medium capitalize">{mode}</span>
+                    {themeMode === mode && <Check className="h-3 w-3 text-primary" />}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Accent color */}
+            <div className="flex flex-col gap-2">
+              <Label>Accent color</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {THEME_COLORS.map((color) => (
+                  <button
+                    key={color.id}
+                    onClick={() => setThemeColor(color.id)}
+                    className={`flex flex-col items-center gap-1.5 rounded-xl border-2 p-3 transition-all ${
+                      themeColor === color.id
+                        ? "border-foreground shadow-sm scale-[1.02]"
+                        : "border-muted hover:border-muted-foreground/20 hover:scale-[1.01]"
+                    }`}
+                  >
+                    <div
+                      className="h-6 w-6 rounded-full shadow-inner ring-1 ring-black/5"
+                      style={{ backgroundColor: color.preview }}
+                    />
+                    <span className="text-[10px] font-medium">{color.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <Button onClick={handleSaveTheme} disabled={savingTheme} className="shadow-sm">
+              {savingTheme ? "Saving..." : "Save appearance"}
+            </Button>
+          </CardContent>
+        </Card>
       </div>
 
       <Separator className="my-8" />
 
-      {/* ── Danger zone ────────────────────────────────── */}
-      <Card className="border-destructive/30">
+      {/* Danger zone */}
+      <Card className="border-destructive/30 shadow-sm">
         <CardHeader>
-          <CardTitle className="text-sm text-destructive">
-            Danger zone
-          </CardTitle>
+          <CardTitle className="text-sm text-destructive">Danger zone</CardTitle>
         </CardHeader>
         <CardContent>
           <AlertDialog>
@@ -288,15 +241,12 @@ export default function SettingsPage() {
               <AlertDialogHeader>
                 <AlertDialogTitle>Delete your account?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This permanently deletes everything. This action cannot be
-                  undone.
+                  This permanently deletes everything. This action cannot be undone.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDeleteAccount}>
-                  Delete everything
-                </AlertDialogAction>
+                <AlertDialogAction onClick={handleDeleteAccount}>Delete everything</AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>

@@ -16,7 +16,6 @@ export default async function AppLayout({
 
   if (!user) redirect("/login");
 
-  // Fetch the user's profile from our users table
   const { data: profile } = await supabase
     .from("users")
     .select("id, display_name, avatar_url, theme_mode, theme_color, onboarded")
@@ -24,15 +23,13 @@ export default async function AppLayout({
     .single();
 
   if (!profile) redirect("/login");
-
-  // Redirect to onboarding if not completed
   if (!profile.onboarded) redirect("/onboarding");
 
   return (
     <ThemeProvider mode={profile.theme_mode} color={profile.theme_color}>
       <div className="min-h-screen flex flex-col">
         <Nav user={profile} />
-        <main className="flex-1 container mx-auto px-4 py-8 max-w-6xl">
+        <main className="flex-1 container mx-auto px-4 py-6 max-w-6xl">
           {children}
         </main>
       </div>

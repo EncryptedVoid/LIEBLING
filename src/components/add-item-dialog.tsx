@@ -67,9 +67,9 @@ export function AddItemDialog({
 
   const isEditing = !!editingItem;
 
-  // Sync collections prop
+  // Sync collections prop — exclude system collections from manual selection
   useEffect(() => {
-    setLocalCollections(collections);
+    setLocalCollections(collections.filter((c) => !c.is_system));
   }, [collections]);
 
   useEffect(() => {

@@ -1,10 +1,10 @@
 export const THEME_COLORS = [
-  { id: "zinc",   label: "Zinc",   preview: "#71717a" },
-  { id: "rose",   label: "Rose",   preview: "#f43f5e" },
-  { id: "blue",   label: "Blue",   preview: "#3b82f6" },
-  { id: "green",  label: "Green",  preview: "#22c55e" },
-  { id: "orange", label: "Orange", preview: "#f97316" },
-  { id: "violet", label: "Violet", preview: "#8b5cf6" },
+  { id: "zinc",   label: "Graphite",  preview: "#71717a" },
+  { id: "rose",   label: "Rosé",      preview: "#f43f5e" },
+  { id: "blue",   label: "Lapis",     preview: "#3b82f6" },
+  { id: "green",  label: "Jade",      preview: "#22c55e" },
+  { id: "orange", label: "Sunset",    preview: "#f97316" },
+  { id: "violet", label: "Amethyst",  preview: "#8b5cf6" },
 ] as const;
 
 export type ThemeColor = (typeof THEME_COLORS)[number]["id"];

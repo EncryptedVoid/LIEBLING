@@ -1,7 +1,3 @@
-// These match your Supabase tables 1:1.
-// Later you can auto-generate these with `supabase gen types typescript`
-// and replace this file, but starting manually keeps things clear.
-
 export type User = {
   id: string;
   display_name: string;
@@ -24,6 +20,7 @@ export type Item = {
   link: string;
   is_claimed: boolean;
   claimed_by: string | null;
+  gifted_at: string | null;
   created_at: string;
 };
 
@@ -31,6 +28,8 @@ export type Collection = {
   id: string;
   user_id: string;
   name: string;
+  emoji: string | null;
+  is_system: boolean; // true for the auto-created "Gifted" collection
   created_at: string;
 };
 

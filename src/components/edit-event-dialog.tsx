@@ -52,7 +52,6 @@ export function EditEventDialog({
   const [collectionId, setCollectionId] = useState("none");
   const [saving, setSaving] = useState(false);
 
-  // Populate form when event changes
   useEffect(() => {
     if (event) {
       setTitle(event.title);
@@ -65,16 +64,9 @@ export function EditEventDialog({
   }, [event, open]);
 
   async function handleSave() {
-    if (!title.trim()) {
-      toast.error("Event needs a title.");
-      return;
-    }
-    if (!date) {
-      toast.error("Pick a date.");
-      return;
-    }
+    if (!title.trim()) { toast.error("Event needs a title."); return; }
+    if (!date) { toast.error("Pick a date."); return; }
     if (!event) return;
-
     setSaving(true);
 
     const { error } = await supabase
@@ -89,19 +81,14 @@ export function EditEventDialog({
       })
       .eq("id", event.id);
 
-    if (error) {
-      toast.error("Couldn't update event.");
-    } else {
-      toast.success("Event updated.");
-      onOpenChange(false);
-      onSaved?.();
-    }
+    if (error) { toast.error("Couldn't update event."); }
+    else { toast.success("Event updated."); onOpenChange(false); onSaved?.(); }
     setSaving(false);
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Edit event</DialogTitle>
         </DialogHeader>
@@ -110,63 +97,40 @@ export function EditEventDialog({
           {/* Title */}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="editTitle">Title</Label>
-            <Input
-              id="editTitle"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
+            <Input id="editTitle" value={title} onChange={(e) => setTitle(e.target.value)} />
           </div>
 
           {/* Description */}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="editDesc">Description</Label>
-            <Textarea
-              id="editDesc"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-            />
+            <Textarea id="editDesc" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
           </div>
 
-          {/* Date */}
-          <div className="flex flex-col gap-1.5">
-            <Label>Date</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="justify-start font-normal">
-                  {date ? format(date, "MMMM d, yyyy") : "Pick a date"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={date}
-                  onSelect={setDate}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          {/* Time */}
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="editTime">Time</Label>
-            <Input
-              id="editTime"
-              type="time"
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-            />
+          {/* Date + Time — same row */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label>Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="justify-start font-normal">
+                    {date ? format(date, "MMM d, yyyy") : "Pick a date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={date} onSelect={setDate} initialFocus />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="editTime">Time</Label>
+              <Input id="editTime" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+            </div>
           </div>
 
           {/* Location */}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="editLocation">Location</Label>
-            <Input
-              id="editLocation"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-            />
+            <Input id="editLocation" value={location} onChange={(e) => setLocation(e.target.value)} />
           </div>
 
           {/* Collection */}
@@ -179,15 +143,13 @@ export function EditEventDialog({
               <SelectContent>
                 <SelectItem value="none">No collection</SelectItem>
                 {collections.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
-          <Button onClick={handleSave} disabled={saving}>
+          <Button onClick={handleSave} disabled={saving} className="shadow-sm">
             {saving ? "Saving..." : "Save changes"}
           </Button>
         </div>

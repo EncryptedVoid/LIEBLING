@@ -11,6 +11,7 @@ type ItemGridProps =
       loading?: boolean;
       onDelete?: (id: string) => void;
       onEdit?: (item: Item) => void;
+      onGiftedToggle?: () => void;
       emptyMessage?: string;
       emptyVariant?: "items" | "search" | "gifts";
     }
@@ -75,6 +76,7 @@ export function ItemGrid(props: ItemGridProps) {
               viewMode="list"
               onDelete={props.onDelete}
               onEdit={props.onEdit}
+              onGiftedToggle={props.onGiftedToggle}
             />
           ) : (
             <ItemCard
@@ -102,6 +104,7 @@ export function ItemGrid(props: ItemGridProps) {
             viewMode="grid"
             onDelete={props.onDelete}
             onEdit={props.onEdit}
+            onGiftedToggle={props.onGiftedToggle}
           />
         ) : (
           <ItemCard
