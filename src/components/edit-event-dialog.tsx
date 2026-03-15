@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { BannerUpload } from "@/components/banner-upload";
 import { toast } from "sonner";
 
 import type { Event, Collection } from "@/lib/types";
@@ -50,6 +51,7 @@ export function EditEventDialog({
   const [time, setTime] = useState("");
   const [location, setLocation] = useState("");
   const [collectionId, setCollectionId] = useState("none");
+  const [bannerUrl, setBannerUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -60,6 +62,7 @@ export function EditEventDialog({
       setTime(event.time ?? "");
       setLocation(event.location ?? "");
       setCollectionId(event.collection_id ?? "none");
+      setBannerUrl(event.banner_url ?? null);
     }
   }, [event, open]);
 
@@ -94,6 +97,19 @@ export function EditEventDialog({
         </DialogHeader>
 
         <div className="flex flex-col gap-4 mt-2">
+          {/* Banner upload */}
+          {event && (
+            <div className="flex flex-col gap-1.5">
+              <Label>Banner Image</Label>
+              <BannerUpload
+                currentUrl={bannerUrl}
+                entityType="event"
+                entityId={event.id}
+                onUploaded={(url) => setBannerUrl(url)}
+              />
+            </div>
+          )}
+
           {/* Title */}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="editTitle">Title</Label>

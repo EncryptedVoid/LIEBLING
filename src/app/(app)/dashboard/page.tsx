@@ -5,10 +5,12 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import {
   differenceInDays,
+  differenceInYears,
   format,
   isBefore,
   setYear,
   addYears,
+  isToday,
 } from "date-fns";
 import {
   Cake,
@@ -16,25 +18,13 @@ import {
   Gift,
   ExternalLink,
   X,
-  Copy,
   Sparkles,
-  QrCode,
-  ChevronLeft,
-  ChevronRight,
+  PartyPopper,
 } from "lucide-react";
-import { QRCodeSVG } from "qrcode.react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
 import { SkeletonStat, SkeletonCard } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
 import { toast } from "sonner";
@@ -49,14 +39,25 @@ export default function DashboardPage() {
 
   const [user, setUser] = useState<User | null>(null);
   const [birthdayCountdown, setBirthdayCountdown] = useState<number | null>(null);
+  const [userAge, setUserAge] = useState<number | null>(null);
+  const [isBirthdayToday, setIsBirthdayToday] = useState(false);
   const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>([]);
   const [claimedItems, setClaimedItems] = useState<ClaimedItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [qrOpen, setQrOpen] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
 
   useEffect(() => {
     fetchDashboard();
   }, []);
+
+  // Confetti effect on birthday
+  useEffect(() => {
+    if (isBirthdayToday) {
+      setShowConfetti(true);
+      const timer = setTimeout(() => setShowConfetti(false), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [isBirthdayToday]);
 
   async function fetchDashboard() {
     setLoading(true);
@@ -69,9 +70,25 @@ export default function DashboardPage() {
     if (profile?.birthday) {
       const bday = new Date(profile.birthday);
       const now = new Date();
-      let nextBday = setYear(bday, now.getFullYear());
-      if (isBefore(nextBday, now)) nextBday = addYears(nextBday, 1);
-      setBirthdayCountdown(differenceInDays(nextBday, now));
+
+      // Check if today is the birthday
+      const todayMonth = now.getMonth();
+      const todayDay = now.getDate();
+      const bdayMonth = bday.getMonth();
+      const bdayDay = bday.getDate();
+
+      if (todayMonth === bdayMonth && todayDay === bdayDay) {
+        setIsBirthdayToday(true);
+        setBirthdayCountdown(0);
+        // Calculate age
+        const age = differenceInYears(now, bday);
+        setUserAge(age);
+      } else {
+        setIsBirthdayToday(false);
+        let nextBday = setYear(bday, now.getFullYear());
+        if (isBefore(nextBday, now)) nextBday = addYears(nextBday, 1);
+        setBirthdayCountdown(differenceInDays(nextBday, now));
+      }
     }
 
     const { data: friendships } = await supabase.from("friendships").select("requester_id, addressee_id").or(`requester_id.eq.${authUser.id},addressee_id.eq.${authUser.id}`).eq("status", "accepted");
@@ -103,21 +120,11 @@ export default function DashboardPage() {
     if (error) { toast.error("Couldn't unclaim."); } else { toast.success("Unclaimed."); setClaimedItems((prev) => prev.filter((i) => i.id !== itemId)); }
   }
 
-  function copyFriendCode() {
-    if (!user?.friend_code) return;
-    navigator.clipboard.writeText(user.friend_code);
-    toast.success("Friend code copied!");
-  }
-
-  const inviteUrl = typeof window !== "undefined" ? `${window.location.origin}/invite/${user?.friend_code}` : "";
-
   if (loading) {
     return (
       <div className="space-y-4 page-enter">
         <div className="h-8 w-48 rounded skeleton-shimmer" />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 stagger-grid">
-          {[1, 2].map((i) => <SkeletonStat key={i} />)}
-        </div>
+        <div className="h-24 rounded-xl skeleton-shimmer" />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="h-48 rounded-xl skeleton-shimmer" />
           <div className="h-48 rounded-xl skeleton-shimmer" />
@@ -127,7 +134,27 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="page-enter flex flex-col gap-4">
+    <div className="page-enter flex flex-col gap-4 relative">
+      {/* Confetti overlay */}
+      {showConfetti && (
+        <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+          {Array.from({ length: 50 }).map((_, i) => (
+            <div
+              key={i}
+              className="absolute animate-confetti"
+              style={{
+                left: `${Math.random() * 100}%`,
+                animationDelay: `${Math.random() * 2}s`,
+                backgroundColor: ['#f43f5e', '#8b5cf6', '#3b82f6', '#22c55e', '#f97316', '#eab308'][Math.floor(Math.random() * 6)],
+                width: `${Math.random() * 10 + 5}px`,
+                height: `${Math.random() * 10 + 5}px`,
+                borderRadius: Math.random() > 0.5 ? '50%' : '0',
+              }}
+            />
+          ))}
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
@@ -143,60 +170,71 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Top stats row (2 cards only) ─────────────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Birthday */}
-        <Card className="overflow-hidden card-gradient-accent shadow-sm hover:shadow-md transition-shadow">
-          <div className="h-1 bg-gradient-to-r from-pink-500 to-rose-400" />
-          <CardContent className="pt-4 flex items-center gap-4">
-            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-pink-100 to-pink-50 dark:from-pink-950/30 dark:to-pink-900/10 flex items-center justify-center shrink-0 shadow-inner">
-              <Cake className="h-6 w-6 text-pink-500" />
-            </div>
-            <div>
-              {birthdayCountdown !== null ? (
-                <>
+      {/* Birthday Card - Redesigned */}
+      {(birthdayCountdown !== null || isBirthdayToday) && (
+        <Card className={`overflow-hidden shadow-sm transition-all ${isBirthdayToday ? 'ring-2 ring-pink-500/50 bg-gradient-to-r from-pink-50 to-rose-50 dark:from-pink-950/20 dark:to-rose-950/20' : 'card-gradient-accent'}`}>
+          <div className={`h-1 ${isBirthdayToday ? 'bg-gradient-to-r from-pink-500 via-rose-400 to-orange-400' : 'bg-gradient-to-r from-pink-500 to-rose-400'}`} />
+          <CardContent className="py-4">
+            {isBirthdayToday ? (
+              // Birthday today view
+              <div className="flex items-center gap-4">
+                <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-pink-200 to-rose-200 dark:from-pink-900/50 dark:to-rose-900/50 flex items-center justify-center shrink-0 shadow-inner">
+                  <PartyPopper className="h-7 w-7 text-pink-600 dark:text-pink-400" />
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-lg font-bold bg-gradient-to-r from-pink-600 to-rose-500 bg-clip-text text-transparent">
+                    🎉 Happy Birthday! 🎉
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    You are <span className="font-semibold text-foreground">{userAge} years young</span> today!
+                  </p>
+                </div>
+                <div className="hidden sm:flex items-center gap-1 text-2xl">
+                  🎂🎈🎁
+                </div>
+              </div>
+            ) : (
+              // Countdown view
+              <div className="flex items-center gap-4">
+                <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-pink-100 to-pink-50 dark:from-pink-950/30 dark:to-pink-900/10 flex items-center justify-center shrink-0 shadow-inner">
+                  <Cake className="h-7 w-7 text-pink-500" />
+                </div>
+                <div className="flex items-center gap-3">
                   <p className="text-3xl font-bold tracking-tight bg-gradient-to-r from-pink-600 to-rose-500 bg-clip-text text-transparent">
                     {birthdayCountdown}
                   </p>
-                  <p className="text-xs text-muted-foreground">days until your birthday</p>
-                </>
-              ) : (
-                <>
-                  <p className="text-sm font-medium">No birthday set</p>
-                  <Link href="/settings" className="text-xs text-primary hover:underline">Add in settings →</Link>
-                </>
-              )}
-            </div>
+                  <p className="text-sm text-muted-foreground">
+                    days until<br />your birthday
+                  </p>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
+      )}
 
-        {/* Friend code + QR */}
-        <Card className="overflow-hidden card-gradient-accent shadow-sm hover:shadow-md transition-shadow">
-          <div className="h-1 bg-gradient-to-r from-violet-500 to-purple-400" />
-          <CardContent className="pt-4 flex items-center gap-4">
-            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-violet-100 to-violet-50 dark:from-violet-950/30 dark:to-violet-900/10 flex items-center justify-center shrink-0 shadow-inner">
-              <Gift className="h-6 w-6 text-violet-500" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs text-muted-foreground mb-1">Your friend code</p>
-              <div className="flex items-center gap-2">
-                <span className="font-mono font-bold tracking-wider text-sm">{user?.friend_code}</span>
-                <Button variant="ghost" size="icon-xs" onClick={copyFriendCode}>
-                  <Copy className="h-3 w-3" />
-                </Button>
-                <Button variant="ghost" size="icon-xs" onClick={() => setQrOpen(true)}>
-                  <QrCode className="h-3 w-3" />
-                </Button>
+      {/* No birthday set */}
+      {birthdayCountdown === null && !isBirthdayToday && user && !user.birthday && (
+        <Card className="overflow-hidden shadow-sm card-gradient-accent">
+          <div className="h-1 bg-gradient-to-r from-pink-500 to-rose-400" />
+          <CardContent className="py-4">
+            <div className="flex items-center gap-4">
+              <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-pink-100 to-pink-50 dark:from-pink-950/30 dark:to-pink-900/10 flex items-center justify-center shrink-0 shadow-inner">
+                <Cake className="h-7 w-7 text-pink-500 opacity-50" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">No birthday set</p>
+                <Link href="/settings" className="text-xs text-primary hover:underline">Add in settings →</Link>
               </div>
             </div>
           </CardContent>
         </Card>
-      </div>
+      )}
 
       {/* ── Two-column layout: Events + Gifts ─────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1 min-h-0">
         {/* Upcoming Events - Scrollable */}
-        <Card className="shadow-sm flex flex-col min-h-[280px] max-h-[360px]">
+        <Card className="shadow-sm flex flex-col min-h-[280px] max-h-[400px]">
           <CardHeader className="pb-2 shrink-0">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -251,8 +289,8 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Gifts to Buy - Scrollable horizontal grid */}
-        <Card className="shadow-sm flex flex-col min-h-[280px] max-h-[360px]">
+        {/* Gifts to Buy - Compact grid */}
+        <Card className="shadow-sm flex flex-col min-h-[280px] max-h-[400px]">
           <CardHeader className="pb-2 shrink-0">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <Gift className="h-4 w-4" />
@@ -273,55 +311,45 @@ export default function DashboardPage() {
               </EmptyState>
             ) : (
               <div className="overflow-y-auto h-full pr-1 scrollbar-thin">
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   {claimedItems.map((item) => (
                     <div
                       key={item.id}
-                      className={`group rounded-lg ring-1 ring-foreground/5 overflow-hidden bg-card hover:shadow-md hover:shadow-primary/5 transition-all card-gradient-accent ${item.gifted_at ? "opacity-60" : ""}`}
+                      className={`group rounded-lg ring-1 ring-foreground/5 overflow-hidden bg-card hover:shadow-md hover:ring-primary/20 transition-all ${item.gifted_at ? "opacity-50" : ""}`}
                     >
                       {/* Image */}
                       <div className="aspect-square bg-muted/40 relative overflow-hidden">
                         {item.image_url ? (
-                          <img src={item.image_url} alt="" className={`h-full w-full object-contain p-2 transition-transform duration-300 group-hover:scale-105 ${item.gifted_at ? "grayscale" : ""}`} />
+                          <img src={item.image_url} alt="" className={`h-full w-full object-contain p-1.5 transition-transform duration-300 group-hover:scale-105 ${item.gifted_at ? "grayscale" : ""}`} />
                         ) : (
                           <div className="h-full w-full flex items-center justify-center">
-                            <Gift className="h-6 w-6 text-muted-foreground/30" />
-                          </div>
-                        )}
-                        {/* Price badge */}
-                        {item.price && (
-                          <div className="absolute bottom-1.5 left-1.5">
-                            <Badge variant="secondary" className="bg-background/90 backdrop-blur-sm shadow-sm font-mono text-[10px] px-1.5 py-0">
-                              ${item.price.toFixed(2)}
-                            </Badge>
+                            <Gift className="h-4 w-4 text-muted-foreground/30" />
                           </div>
                         )}
                         {/* Gifted overlay */}
                         {item.gifted_at && (
                           <div className="absolute inset-0 bg-background/40 flex items-center justify-center">
-                            <Badge variant="outline" className="shadow-sm gap-1 bg-background/80 backdrop-blur-sm text-[9px]">
-                              <Gift className="h-2 w-2" /> Delivered
-                            </Badge>
+                            <Gift className="h-3 w-3 text-muted-foreground/50" />
                           </div>
                         )}
                         {/* Quick actions on hover */}
-                        <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200">
-                          <Button variant="secondary" size="icon-xs" className="h-6 w-6 bg-background/90 backdrop-blur-sm shadow-sm" onClick={() => window.open(item.link, "_blank", "noopener,noreferrer")}>
-                            <ExternalLink className="h-3 w-3" />
+                        <div className="absolute top-0.5 right-0.5 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-all duration-200">
+                          <Button variant="secondary" size="icon-xs" className="h-5 w-5 bg-background/90 backdrop-blur-sm shadow-sm" onClick={(e) => { e.stopPropagation(); window.open(item.link, "_blank", "noopener,noreferrer"); }}>
+                            <ExternalLink className="h-2.5 w-2.5" />
                           </Button>
-                          <Button variant="secondary" size="icon-xs" className="h-6 w-6 bg-background/90 backdrop-blur-sm shadow-sm text-destructive hover:bg-destructive/10" onClick={() => handleUnclaim(item.id)}>
-                            <X className="h-3 w-3" />
+                          <Button variant="secondary" size="icon-xs" className="h-5 w-5 bg-background/90 backdrop-blur-sm shadow-sm text-destructive hover:bg-destructive/10" onClick={(e) => { e.stopPropagation(); handleUnclaim(item.id); }}>
+                            <X className="h-2.5 w-2.5" />
                           </Button>
                         </div>
                       </div>
-                      {/* Info */}
-                      <div className="p-2">
-                        <p className="text-[11px] font-medium leading-snug line-clamp-2 group-hover:text-primary transition-colors">{item.name}</p>
-                        {item.owner && (
-                          <p className="text-[9px] text-muted-foreground mt-0.5 flex items-center gap-1">
-                            for {item.owner.display_name.split(" ")[0]}
-                          </p>
+                      {/* Info - minimal */}
+                      <div className="p-1.5">
+                        {item.price && (
+                          <p className="text-xs font-bold text-primary font-mono">${item.price.toFixed(0)}</p>
                         )}
+                        <p className="text-[9px] text-muted-foreground truncate">
+                          for {item.owner?.display_name?.split(" ")[0] ?? "friend"}
+                        </p>
                       </div>
                     </div>
                   ))}
@@ -331,42 +359,6 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
-
-      {/* ── QR Code Modal ─────────────────────────────── */}
-      <Dialog open={qrOpen} onOpenChange={setQrOpen}>
-        <DialogContent className="sm:max-w-xs text-center">
-          <DialogHeader>
-            <DialogTitle>Share your code</DialogTitle>
-            <DialogDescription>Have a friend scan this to connect with you.</DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col items-center gap-4 mt-2">
-            <div className="rounded-2xl border p-5 bg-white shadow-lg">
-              <QRCodeSVG value={inviteUrl} size={180} />
-            </div>
-            <div className="flex items-center gap-2 bg-muted rounded-lg px-4 py-2">
-              <span className="font-mono font-bold tracking-wider text-sm">{user?.friend_code}</span>
-              <Button variant="ghost" size="icon-xs" onClick={copyFriendCode}>
-                <Copy className="h-3 w-3" />
-              </Button>
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              or share this link:
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full text-xs"
-              onClick={() => {
-                navigator.clipboard.writeText(inviteUrl);
-                toast.success("Link copied!");
-              }}
-            >
-              <Copy className="h-3 w-3 mr-1.5" />
-              Copy invite link
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

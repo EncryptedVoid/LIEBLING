@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { format, formatDistanceToNow, isFuture } from "date-fns";
 import { createClient } from "@/lib/supabase/client";
 import { MapPin, CalendarDays } from "lucide-react";
+import { formatTimeDisplay } from "@/lib/time-format";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { TimeInput } from "@/components/ui/time-input";
 import { toast } from "sonner";
 
 import type { Collection } from "@/lib/types";
@@ -38,9 +40,25 @@ export default function NewEventPage() {
   const [newCollectionName, setNewCollectionName] = useState("");
   const [collections, setCollections] = useState<Collection[]>([]);
   const [saving, setSaving] = useState(false);
+  const [timeFormat, setTimeFormat] = useState<"12h" | "24h">("12h");
 
   useEffect(() => {
-    supabase.from("collections").select("*").order("name").then(({ data }) => setCollections(data ?? []));
+    async function load() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from("users")
+          .select("time_format")
+          .eq("id", user.id)
+          .single();
+        if (profile?.time_format) {
+          setTimeFormat(profile.time_format);
+        }
+      }
+      const { data: cols } = await supabase.from("collections").select("*").order("name");
+      setCollections(cols ?? []);
+    }
+    load();
   }, []);
 
   // Auto-set collection name from event title
@@ -119,8 +137,12 @@ export default function NewEventPage() {
                 </Popover>
               </div>
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="time">Time</Label>
-                <Input id="time" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+                <Label>Time</Label>
+                <TimeInput
+                  value={time}
+                  onChange={setTime}
+                  format={timeFormat}
+                />
               </div>
             </div>
 
@@ -185,7 +207,7 @@ export default function NewEventPage() {
                 <h3 className="font-medium text-xs leading-snug truncate">{title || "Event title"}</h3>
                 {previewDate && (
                   <p className="text-[10px] text-muted-foreground mt-0.5">
-                    {format(previewDate, "EEE, MMM d")}{time && ` at ${time}`}
+                    {format(previewDate, "EEE, MMM d")}{time && ` at ${formatTimeDisplay(time, timeFormat)}`}
                   </p>
                 )}
                 {location && (

@@ -12,6 +12,7 @@ import {
   Sparkles,
   LayoutGrid,
   List,
+  ImageIcon,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -45,7 +46,9 @@ import { ItemGrid } from "@/components/item-grid";
 import { AddItemDialog } from "@/components/add-item-dialog";
 import { ProfileCarousel } from "@/components/profile-carousel";
 import { TemplatePicker } from "@/components/template-picker";
+import { NewCollectionDialog } from "@/components/add-collection-dialog";
 import { EmojiPicker } from "@/components/emoji-picker";
+import { BannerUpload } from "@/components/banner-upload";
 import { THEME_CSS } from "@/lib/theme-colors";
 import { toast } from "sonner";
 
@@ -74,15 +77,14 @@ export default function WishlistPage() {
   const [addItemOpen, setAddItemOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
 
+  // Use NewCollectionDialog instead of inline dialog
   const [addCollectionOpen, setAddCollectionOpen] = useState(false);
-  const [newCollectionName, setNewCollectionName] = useState("");
-  const [newCollectionEmoji, setNewCollectionEmoji] = useState<string | null>(null);
-  const [savingCollection, setSavingCollection] = useState(false);
 
   const [editCollectionOpen, setEditCollectionOpen] = useState(false);
   const [editingCollection, setEditingCollection] = useState<Collection | null>(null);
   const [editCollectionName, setEditCollectionName] = useState("");
   const [editCollectionEmoji, setEditCollectionEmoji] = useState<string | null>(null);
+  const [editCollectionBanner, setEditCollectionBanner] = useState<string | null>(null);
   const [savingEditCollection, setSavingEditCollection] = useState(false);
 
   const [deleteCollectionOpen, setDeleteCollectionOpen] = useState(false);
@@ -207,27 +209,27 @@ export default function WishlistPage() {
   function handleEditItem(item: Item) { setEditingItem(item); setAddItemOpen(true); }
   function handleGiftedToggle() { fetchData(activeUserId); }
 
-  // ── Collection CRUD ────────────────────────────────────
-  async function handleCreateCollection() {
-    if (!newCollectionName.trim()) return;
-    setSavingCollection(true);
-    const { error } = await supabase.from("collections").insert({ user_id: currentUser!.id, name: newCollectionName.trim(), emoji: newCollectionEmoji });
-    if (error) { toast.error("Couldn't create collection."); } else {
-      toast.success(`"${newCollectionName.trim()}" created.`);
-      setNewCollectionName("");
-      setNewCollectionEmoji(null);
-      setAddCollectionOpen(false);
-      fetchData(activeUserId);
-    }
-    setSavingCollection(false);
-  }
+  // Get active collection for banner display
+  const activeCollection = activeCollectionId
+    ? collections.find((c) => c.id === activeCollectionId)
+    : null;
 
-  function openEditCollection(col: Collection) { setEditingCollection(col); setEditCollectionName(col.name); setEditCollectionEmoji(col.emoji ?? null); setEditCollectionOpen(true); }
+  // ── Collection Edit with Banner ────────────────────────
+  function openEditCollection(col: Collection) {
+    setEditingCollection(col);
+    setEditCollectionName(col.name);
+    setEditCollectionEmoji(col.emoji ?? null);
+    setEditCollectionBanner(col.banner_url ?? null);
+    setEditCollectionOpen(true);
+  }
 
   async function handleSaveEditCollection() {
     if (!editCollectionName.trim() || !editingCollection) return;
     setSavingEditCollection(true);
-    const { error } = await supabase.from("collections").update({ name: editCollectionName.trim(), emoji: editCollectionEmoji }).eq("id", editingCollection.id);
+    const { error } = await supabase.from("collections").update({
+      name: editCollectionName.trim(),
+      emoji: editCollectionEmoji
+    }).eq("id", editingCollection.id);
     if (error) { toast.error("Couldn't rename collection."); } else {
       toast.success("Collection updated.");
       setEditCollectionOpen(false);
@@ -298,9 +300,14 @@ export default function WishlistPage() {
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest">Collections</h2>
             {isOwnWishlist && (
-              <Button variant="ghost" size="icon-xs" onClick={() => setAddCollectionOpen(true)}>
-                <Plus className="h-3.5 w-3.5" />
-              </Button>
+              <div className="flex gap-0.5">
+                <Button variant="ghost" size="icon-xs" onClick={() => setTemplatePickerOpen(true)} title="Templates">
+                  <Sparkles className="h-3.5 w-3.5" />
+                </Button>
+                <Button variant="ghost" size="icon-xs" onClick={() => setAddCollectionOpen(true)} title="New collection">
+                  <Plus className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             )}
           </div>
 
@@ -344,6 +351,9 @@ export default function WishlistPage() {
                       <span className="text-sm">{col.emoji || "🎁"}</span>
                     )}
                     {col.name}
+                    {col.banner_url && (
+                      <ImageIcon className="h-2.5 w-2.5 opacity-50" />
+                    )}
                   </span>
                   <span className={`text-[10px] shrink-0 ml-2 ${activeCollectionId === col.id ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
                     {getCount(col.id)}
@@ -363,7 +373,7 @@ export default function WishlistPage() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-36">
                       <DropdownMenuItem onClick={() => openEditCollection(col)}>
-                        <Pencil className="h-3 w-3 mr-2" />Rename
+                        <Pencil className="h-3 w-3 mr-2" />Edit
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => openDeleteCollection(col)} className="text-destructive focus:text-destructive">
                         <Trash2 className="h-3 w-3 mr-2" />Delete
@@ -378,10 +388,32 @@ export default function WishlistPage() {
 
         {/* Main content — scrollable */}
         <div className="flex-1 min-w-0 flex flex-col">
+          {/* Collection Banner */}
+          {activeCollection?.banner_url && (
+            <div className="relative h-32 -mx-4 mb-4 rounded-xl overflow-hidden">
+              <img
+                src={activeCollection.banner_url}
+                alt=""
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/20 to-transparent" />
+              <div className="absolute bottom-3 left-4 flex items-center gap-2">
+                {activeCollection.emoji && (
+                  <span className="text-2xl">{activeCollection.emoji}</span>
+                )}
+                <h1 className="text-xl font-semibold tracking-tight text-foreground drop-shadow-sm">
+                  {activeCollection.name}
+                </h1>
+              </div>
+            </div>
+          )}
+
           {/* Header */}
           <div className="flex items-center justify-between gap-4 shrink-0">
             <div>
-              <h1 className="text-xl font-semibold tracking-tight">{activeLabel}</h1>
+              {!activeCollection?.banner_url && (
+                <h1 className="text-xl font-semibold tracking-tight">{activeLabel}</h1>
+              )}
               <p className="text-muted-foreground mt-0.5 text-xs">
                 {filteredItems.length} {filteredItems.length === 1 ? "item" : "items"}
               </p>
@@ -492,34 +524,12 @@ export default function WishlistPage() {
         editingItem={editingItem}
       />
 
-      {/* New collection dialog */}
-      <Dialog open={addCollectionOpen} onOpenChange={setAddCollectionOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <div className="flex items-center justify-between">
-              <DialogTitle>New collection</DialogTitle>
-              <Button variant="ghost" size="icon-xs" onClick={() => { setTemplatePickerOpen(true); setAddCollectionOpen(false); }}>
-                <Sparkles className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          </DialogHeader>
-          <div className="flex flex-col gap-4 mt-2">
-            <div className="flex gap-2">
-              <EmojiPicker value={newCollectionEmoji} onChange={setNewCollectionEmoji} />
-              <Input
-                placeholder="e.g. Kitchen, Books, Baby Stuff"
-                value={newCollectionName}
-                onChange={(e) => setNewCollectionName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleCreateCollection()}
-                className="flex-1"
-              />
-            </div>
-            <Button onClick={handleCreateCollection} disabled={savingCollection || !newCollectionName.trim()}>
-              {savingCollection ? "Creating..." : "Create"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* New collection dialog with event linking */}
+      <NewCollectionDialog
+        open={addCollectionOpen}
+        onOpenChange={setAddCollectionOpen}
+        onCreated={() => fetchData(activeUserId)}
+      />
 
       {/* Template picker */}
       <TemplatePicker
@@ -528,13 +538,26 @@ export default function WishlistPage() {
         onCreated={() => fetchData(activeUserId)}
       />
 
-      {/* Edit collection dialog */}
+      {/* Edit collection dialog with banner upload */}
       <Dialog open={editCollectionOpen} onOpenChange={(open) => { setEditCollectionOpen(open); if (!open) setEditingCollection(null); }}>
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>Edit collection</DialogTitle></DialogHeader>
           <div className="flex flex-col gap-4 mt-2">
+            {/* Banner upload */}
+            {editingCollection && (
+              <div className="flex flex-col gap-1.5">
+                <Label>Banner Image</Label>
+                <BannerUpload
+                  currentUrl={editCollectionBanner}
+                  entityType="collection"
+                  entityId={editingCollection.id}
+                  onUploaded={(url) => setEditCollectionBanner(url)}
+                />
+              </div>
+            )}
+
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="editColName">Name</Label>
+              <Label htmlFor="editColName">Name & Icon</Label>
               <div className="flex gap-2">
                 <EmojiPicker value={editCollectionEmoji} onChange={setEditCollectionEmoji} />
                 <Input id="editColName" value={editCollectionName} onChange={(e) => setEditCollectionName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSaveEditCollection()} className="flex-1" />

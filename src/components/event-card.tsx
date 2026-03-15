@@ -56,8 +56,6 @@ export function EventCard({ event, onDelete, onEdit, showOwnerBadge = false }: E
 
   // Format time display (this would ideally use user's preference)
   function formatTime(time: string) {
-    // Simple 24h to 12h conversion for now
-    // TODO: Use user's time_format preference
     const [hours, minutes] = time.split(":").map(Number);
     const ampm = hours >= 12 ? "PM" : "AM";
     const hour12 = hours % 12 || 12;
@@ -66,10 +64,10 @@ export function EventCard({ event, onDelete, onEdit, showOwnerBadge = false }: E
 
   return (
     <>
-      <Card className="overflow-hidden group transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-0.5 card-gradient-accent relative">
+      <Card className="overflow-hidden group transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-0.5 card-gradient-accent relative h-full flex flex-col">
         {/* Banner image */}
         {event.banner_url && (
-          <div className="h-24 overflow-hidden">
+          <div className="h-20 overflow-hidden shrink-0">
             <img
               src={event.banner_url}
               alt=""
@@ -80,7 +78,7 @@ export function EventCard({ event, onDelete, onEdit, showOwnerBadge = false }: E
 
         {/* Color accent bar (only if no banner) */}
         {!event.banner_url && (
-          <div className={`h-1 ${past ? "bg-muted-foreground/20" : "bg-gradient-to-r from-primary/60 via-primary/20 to-transparent"}`} />
+          <div className={`h-1 shrink-0 ${past ? "bg-muted-foreground/20" : "bg-gradient-to-r from-primary/60 via-primary/20 to-transparent"}`} />
         )}
 
         {/* Owner badge (for timeline view) */}
@@ -91,13 +89,13 @@ export function EventCard({ event, onDelete, onEdit, showOwnerBadge = false }: E
                 <AvatarImage src={event.owner.avatar_url ?? undefined} />
                 <AvatarFallback className="text-[8px]">{event.owner.display_name[0]?.toUpperCase()}</AvatarFallback>
               </Avatar>
-              <span className="text-[10px] font-medium">{event.owner.display_name.split(" ")[0]}</span>
+              <span className="text-[10px] font-medium truncate max-w-[80px]">{event.owner.display_name.split(" ")[0]}</span>
             </div>
           </div>
         )}
 
-        <Link href={`/events/${event.id}`}>
-          <CardContent className="p-4 flex gap-3">
+        <Link href={`/events/${event.id}`} className="flex-1 flex flex-col">
+          <CardContent className="p-4 flex gap-3 flex-1">
             {/* Date block */}
             <div className={`h-14 w-14 rounded-xl flex flex-col items-center justify-center shrink-0 transition-colors shadow-inner ${
               past ? "bg-muted text-muted-foreground" : "bg-gradient-to-br from-primary/15 to-primary/5 text-primary group-hover:from-primary/20 group-hover:to-primary/10"
@@ -107,44 +105,48 @@ export function EventCard({ event, onDelete, onEdit, showOwnerBadge = false }: E
             </div>
 
             {/* Info */}
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 flex flex-col">
               <div className="flex items-start justify-between gap-2">
-                <h3 className="font-medium text-sm leading-snug group-hover:text-primary transition-colors line-clamp-1">
+                <h3 className="font-medium text-sm leading-snug group-hover:text-primary transition-colors line-clamp-2 flex-1">
                   {showOwnerBadge && event.owner ? `${event.owner.display_name.split(" ")[0]}'s ${event.title}` : event.title}
                 </h3>
                 <div className="flex items-center gap-1 shrink-0">
                   {!past && (
-                    <Badge className="text-[10px] shadow-sm">{formatDistanceToNow(eventDate, { addSuffix: true })}</Badge>
+                    <Badge className="text-[10px] shadow-sm whitespace-nowrap">{formatDistanceToNow(eventDate, { addSuffix: true })}</Badge>
                   )}
                   {past && <Badge variant="outline" className="text-[10px]">Past</Badge>}
                 </div>
               </div>
 
-              <p className="text-[11px] text-muted-foreground mt-1">
+              <p className="text-[11px] text-muted-foreground mt-1 line-clamp-1">
                 {format(eventDate, "EEEE, MMMM d, yyyy")}
                 {event.time && ` at ${formatTime(event.time)}`}
               </p>
 
               {event.location && (
-                <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
-                  <MapPin className="h-2.5 w-2.5" />{event.location}
+                <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5 line-clamp-1">
+                  <MapPin className="h-2.5 w-2.5 shrink-0" />
+                  <span className="truncate">{event.location}</span>
                 </p>
               )}
 
+              {/* Spacer to push collection badge to bottom */}
+              <div className="flex-1 min-h-1" />
+
               {event.collection_name && (
-                <Badge variant="secondary" className="mt-2 text-[10px] shadow-sm">{event.collection_name}</Badge>
+                <Badge variant="secondary" className="mt-2 text-[10px] shadow-sm w-fit max-w-full truncate">{event.collection_name}</Badge>
               )}
             </div>
 
             {/* Three-dot menu */}
             {editable && (
-              <div onClick={(e) => e.preventDefault()}>
+              <div onClick={(e) => e.preventDefault()} className="shrink-0">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                      className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
                     >
                       <MoreHorizontal className="h-4 w-4" />
                     </Button>

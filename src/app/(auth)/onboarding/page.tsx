@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { createClient } from "@/lib/supabase/client";
-import { Check, Sun, Moon } from "lucide-react";
+import { Check, Sun, Moon, Clock } from "lucide-react";
 import { THEME_COLORS } from "@/lib/theme-colors";
 
 import {
@@ -34,9 +34,10 @@ export default function OnboardingPage() {
   const [birthday, setBirthday] = useState<Date | undefined>();
   const [themeMode, setThemeMode] = useState<"light" | "dark">("light");
   const [themeColor, setThemeColor] = useState("zinc");
+  const [timeFormat, setTimeFormat] = useState<"12h" | "24h">("12h");
   const [saving, setSaving] = useState(false);
 
-  const totalSteps = 4;
+  const totalSteps = 5; // Added time format step
 
   useState(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -54,7 +55,10 @@ export default function OnboardingPage() {
     if (!user) { toast.error("Not logged in."); setSaving(false); return; }
     const { error } = await supabase.from("users").update({
       birthday: birthday ? format(birthday, "yyyy-MM-dd") : null,
-      theme_mode: themeMode, theme_color: themeColor, onboarded: true,
+      theme_mode: themeMode,
+      theme_color: themeColor,
+      time_format: timeFormat,
+      onboarded: true,
     }).eq("id", user.id);
     if (error) { toast.error("Something went wrong."); } else { router.push("/dashboard"); router.refresh(); }
     setSaving(false);
@@ -124,8 +128,46 @@ export default function OnboardingPage() {
           </Card>
         )}
 
-        {/* Step 2: Light / Dark */}
+        {/* Step 2: Time Format */}
         {step === 2 && (
+          <Card className="shadow-lg shadow-primary/5 animate-in fade-in-50 slide-in-from-bottom-2 duration-300">
+            <CardHeader className="text-center">
+              <CardTitle className="text-xl">How do you prefer time?</CardTitle>
+              <CardDescription>Choose your preferred time format.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col items-center gap-4">
+              <div className="flex gap-3 w-full max-w-xs">
+                {(["12h", "24h"] as const).map((fmt) => (
+                  <button
+                    key={fmt}
+                    onClick={() => setTimeFormat(fmt)}
+                    className={`flex-1 flex flex-col items-center gap-2 rounded-xl border-2 p-5 transition-all ${
+                      timeFormat === fmt
+                        ? "border-primary bg-primary/5 shadow-sm"
+                        : "border-muted hover:border-muted-foreground/20"
+                    }`}
+                  >
+                    <Clock className="h-6 w-6" />
+                    <span className="text-lg font-mono font-medium">
+                      {fmt === "12h" ? "2:30 PM" : "14:30"}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {fmt === "12h" ? "12-hour" : "24-hour"}
+                    </span>
+                    {timeFormat === fmt && <Check className="h-4 w-4 text-primary" />}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-2 w-full max-w-xs">
+                <Button variant="ghost" className="flex-1" onClick={() => setStep(1)}>Back</Button>
+                <Button className="flex-1 shadow-sm" onClick={() => setStep(3)}>Next</Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Step 3: Light / Dark */}
+        {step === 3 && (
           <Card className="shadow-lg shadow-primary/5 animate-in fade-in-50 slide-in-from-bottom-2 duration-300">
             <CardHeader className="text-center">
               <CardTitle className="text-xl">Light or dark?</CardTitle>
@@ -146,15 +188,15 @@ export default function OnboardingPage() {
                 ))}
               </div>
               <div className="flex gap-2 w-full max-w-xs">
-                <Button variant="ghost" className="flex-1" onClick={() => setStep(1)}>Back</Button>
-                <Button className="flex-1 shadow-sm" onClick={() => setStep(3)}>Next</Button>
+                <Button variant="ghost" className="flex-1" onClick={() => setStep(2)}>Back</Button>
+                <Button className="flex-1 shadow-sm" onClick={() => setStep(4)}>Next</Button>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Step 3: Theme color */}
-        {step === 3 && (
+        {/* Step 4: Theme color */}
+        {step === 4 && (
           <Card className="shadow-lg shadow-primary/5 animate-in fade-in-50 slide-in-from-bottom-2 duration-300">
             <CardHeader className="text-center">
               <CardTitle className="text-xl">Pick a color</CardTitle>
@@ -175,7 +217,7 @@ export default function OnboardingPage() {
                 ))}
               </div>
               <div className="flex gap-2 w-full max-w-xs">
-                <Button variant="ghost" className="flex-1" onClick={() => setStep(2)}>Back</Button>
+                <Button variant="ghost" className="flex-1" onClick={() => setStep(3)}>Back</Button>
                 <Button className="flex-1 shadow-sm" onClick={handleFinish} disabled={saving}>
                   {saving ? "Setting up..." : "Let's go!"}
                 </Button>

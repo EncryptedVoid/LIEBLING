@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { format } from "date-fns";
 import { MapPin, CalendarDays } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { formatTimeDisplay } from "@/lib/time-format";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,9 +25,24 @@ export default function EventDetailPage() {
   const [allCollections, setAllCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [timeFormat, setTimeFormat] = useState<"12h" | "24h">("12h");
 
   async function fetchData() {
     setLoading(true);
+    
+    // Fetch user preferences
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: profile } = await supabase
+        .from("users")
+        .select("time_format")
+        .eq("id", user.id)
+        .single();
+      if (profile?.time_format) {
+        setTimeFormat(profile.time_format);
+      }
+    }
+
     const { data: eventData } = await supabase.from("events").select("*").eq("id", id).single();
     setEvent(eventData);
 
@@ -76,7 +92,7 @@ export default function EventDetailPage() {
                 <CalendarDays className="h-3 w-3" />
                 {format(new Date(event.date), "EEEE, MMMM d, yyyy")}
               </span>
-              {event.time && <span>at {event.time}</span>}
+              {event.time && <span>at {formatTimeDisplay(event.time, timeFormat)}</span>}
               {event.location && (
                 <span className="flex items-center gap-1">
                   <MapPin className="h-3 w-3" />{event.location}
