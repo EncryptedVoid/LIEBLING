@@ -19,6 +19,8 @@ import {
   Copy,
   Sparkles,
   QrCode,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -83,7 +85,7 @@ export default function DashboardPage() {
 
     const allUserIds = [authUser.id, ...friendIds];
     const now = new Date();
-    const { data: eventsData } = await supabase.from("events").select("*").in("user_id", allUserIds).gte("date", format(now, "yyyy-MM-dd")).order("date", { ascending: true }).limit(6);
+    const { data: eventsData } = await supabase.from("events").select("*").in("user_id", allUserIds).gte("date", format(now, "yyyy-MM-dd")).order("date", { ascending: true }).limit(10);
     const events: UpcomingEvent[] = (eventsData ?? []).map((e: any) => ({ ...e, owner: e.user_id === authUser.id ? (profile as User) : profileMap.get(e.user_id), daysAway: differenceInDays(new Date(e.date), now) }));
     setUpcomingEvents(events);
 
@@ -108,26 +110,26 @@ export default function DashboardPage() {
   }
 
   const inviteUrl = typeof window !== "undefined" ? `${window.location.origin}/invite/${user?.friend_code}` : "";
-  const hasEvents = upcomingEvents.length > 0;
 
   if (loading) {
     return (
-      <div className="space-y-6 page-enter">
+      <div className="space-y-4 page-enter">
         <div className="h-8 w-48 rounded skeleton-shimmer" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 stagger-grid">
-          {[1, 2, 3].map((i) => <SkeletonStat key={i} />)}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 stagger-grid">
+          {[1, 2].map((i) => <SkeletonStat key={i} />)}
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger-grid">
-          {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="h-48 rounded-xl skeleton-shimmer" />
+          <div className="h-48 rounded-xl skeleton-shimmer" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="page-enter">
+    <div className="page-enter flex flex-col gap-4">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-8">
+      <div className="flex items-center gap-3">
         <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
           <Sparkles className="h-5 w-5 text-primary" />
         </div>
@@ -141,8 +143,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Top stats row ─────────────────────────────── */}
-      <div className={`grid gap-4 ${hasEvents ? "grid-cols-1 md:grid-cols-3" : "grid-cols-1 md:grid-cols-3"}`}>
+      {/* ── Top stats row (2 cards only) ─────────────────────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Birthday */}
         <Card className="overflow-hidden card-gradient-accent shadow-sm hover:shadow-md transition-shadow">
           <div className="h-1 bg-gradient-to-r from-pink-500 to-rose-400" />
@@ -168,40 +170,6 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Next event / Upcoming events */}
-        {hasEvents ? (
-          <Card className="overflow-hidden card-gradient-accent shadow-sm hover:shadow-md transition-shadow">
-            <div className="h-1 bg-gradient-to-r from-blue-500 to-cyan-400" />
-            <CardContent className="pt-4 flex items-center gap-4">
-              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-100 to-blue-50 dark:from-blue-950/30 dark:to-blue-900/10 flex items-center justify-center shrink-0 shadow-inner">
-                <CalendarDays className="h-6 w-6 text-blue-500" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-medium truncate">{upcomingEvents[0].title}</p>
-                <p className="text-xs text-muted-foreground">
-                  in {upcomingEvents[0].daysAway === 0 ? "today" : `${upcomingEvents[0].daysAway}d`}
-                  {upcomingEvents[0].owner && upcomingEvents[0].user_id !== user?.id && (
-                    <span> · {upcomingEvents[0].owner.display_name.split(" ")[0]}</span>
-                  )}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card className="overflow-hidden card-gradient-accent shadow-sm hover:shadow-md transition-shadow">
-            <div className="h-1 bg-gradient-to-r from-blue-500 to-cyan-400" />
-            <CardContent className="pt-4 flex items-center gap-4">
-              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-100 to-blue-50 dark:from-blue-950/30 dark:to-blue-900/10 flex items-center justify-center shrink-0 shadow-inner">
-                <CalendarDays className="h-6 w-6 text-blue-500" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">No upcoming events</p>
-                <Link href="/events/new" className="text-xs text-primary hover:underline">Create one →</Link>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
         {/* Friend code + QR */}
         <Card className="overflow-hidden card-gradient-accent shadow-sm hover:shadow-md transition-shadow">
           <div className="h-1 bg-gradient-to-r from-violet-500 to-purple-400" />
@@ -225,121 +193,144 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* ── Expanded events list (only when events exist) ── */}
-      {hasEvents && (
-        <Card className="mt-6 shadow-sm">
-          <CardHeader className="pb-2">
+      {/* ── Two-column layout: Events + Gifts ─────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1 min-h-0">
+        {/* Upcoming Events - Scrollable */}
+        <Card className="shadow-sm flex flex-col min-h-[280px] max-h-[360px]">
+          <CardHeader className="pb-2 shrink-0">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium">Upcoming Events</CardTitle>
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <CalendarDays className="h-4 w-4" />
+                Upcoming Events ({upcomingEvents.length})
+              </CardTitle>
               <Button variant="ghost" size="sm" asChild>
                 <Link href="/events">View all</Link>
               </Button>
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-2 stagger-grid">
-              {upcomingEvents.map((event) => (
-                <Link
-                  key={event.id}
-                  href={`/events/${event.id}`}
-                  className="flex items-center gap-3 rounded-xl p-3 -mx-1 hover:bg-muted/60 hover:shadow-sm transition-all group"
-                >
-                  <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-primary/15 to-primary/5 flex items-center justify-center shrink-0 group-hover:from-primary/20 group-hover:to-primary/10 transition-colors shadow-inner">
-                    <CalendarDays className="h-4 w-4 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium truncate group-hover:text-primary transition-colors">{event.title}</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {format(new Date(event.date), "MMM d, yyyy")}
-                      {event.owner && event.user_id !== user?.id && <span> · {event.owner.display_name}</span>}
-                    </p>
-                  </div>
-                  <Badge variant={event.daysAway <= 7 ? "default" : "secondary"} className="shrink-0 shadow-sm">
-                    {event.daysAway === 0 ? "Today" : event.daysAway === 1 ? "Tomorrow" : `${event.daysAway}d`}
-                  </Badge>
-                </Link>
-              ))}
-            </div>
+          <CardContent className="flex-1 overflow-hidden">
+            {upcomingEvents.length === 0 ? (
+              <EmptyState
+                variant="events"
+                title="No upcoming events"
+                description="Create an event to get started."
+                className="py-6"
+              >
+                <Button variant="outline" size="sm" asChild>
+                  <Link href="/events/new">Create event</Link>
+                </Button>
+              </EmptyState>
+            ) : (
+              <div className="overflow-y-auto h-full pr-1 scrollbar-thin">
+                <div className="space-y-2">
+                  {upcomingEvents.map((event) => (
+                    <Link
+                      key={event.id}
+                      href={`/events/${event.id}`}
+                      className="flex items-center gap-3 rounded-xl p-2.5 hover:bg-muted/60 hover:shadow-sm transition-all group"
+                    >
+                      <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-primary/15 to-primary/5 flex flex-col items-center justify-center shrink-0 group-hover:from-primary/20 group-hover:to-primary/10 transition-colors shadow-inner text-primary">
+                        <span className="text-[8px] font-medium uppercase leading-none">{format(new Date(event.date), "MMM")}</span>
+                        <span className="text-sm font-bold leading-tight">{format(new Date(event.date), "d")}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium truncate group-hover:text-primary transition-colors">{event.title}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {format(new Date(event.date), "EEE, MMM d")}
+                          {event.owner && event.user_id !== user?.id && <span> · {event.owner.display_name}</span>}
+                        </p>
+                      </div>
+                      <Badge variant={event.daysAway <= 7 ? "default" : "secondary"} className="shrink-0 text-[10px] shadow-sm">
+                        {event.daysAway === 0 ? "Today" : event.daysAway === 1 ? "Tomorrow" : `${event.daysAway}d`}
+                      </Badge>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
-      )}
 
-      {/* ── Gifts to buy (card grid view) ─────────────── */}
-      <Card className="mt-6 shadow-sm">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <Gift className="h-4 w-4" />
-            Gifts to Buy ({claimedItems.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {claimedItems.length === 0 ? (
-            <EmptyState
-              variant="gifts"
-              title="No gifts to buy yet"
-              description="Browse your friends' wishlists to claim gifts for them."
-            >
-              <Button variant="outline" size="sm" asChild>
-                <Link href="/wishlist">Go to wishlists</Link>
-              </Button>
-            </EmptyState>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 stagger-grid">
-              {claimedItems.map((item) => (
-                <div
-                  key={item.id}
-                  className={`group rounded-xl ring-1 ring-foreground/5 overflow-hidden bg-card hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-0.5 transition-all duration-300 card-gradient-accent ${item.gifted_at ? "opacity-60" : ""}`}
-                >
-                  {/* Image */}
-                  <div className="aspect-square bg-muted/40 relative overflow-hidden">
-                    {item.image_url ? (
-                      <img src={item.image_url} alt="" className={`h-full w-full object-contain p-3 transition-transform duration-300 group-hover:scale-105 ${item.gifted_at ? "grayscale" : ""}`} />
-                    ) : (
-                      <div className="h-full w-full flex items-center justify-center">
-                        <Gift className="h-8 w-8 text-muted-foreground/30" />
+        {/* Gifts to Buy - Scrollable horizontal grid */}
+        <Card className="shadow-sm flex flex-col min-h-[280px] max-h-[360px]">
+          <CardHeader className="pb-2 shrink-0">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Gift className="h-4 w-4" />
+              Gifts to Buy ({claimedItems.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex-1 overflow-hidden">
+            {claimedItems.length === 0 ? (
+              <EmptyState
+                variant="gifts"
+                title="No gifts to buy yet"
+                description="Browse your friends' wishlists to claim gifts."
+                className="py-6"
+              >
+                <Button variant="outline" size="sm" asChild>
+                  <Link href="/wishlist">Go to wishlists</Link>
+                </Button>
+              </EmptyState>
+            ) : (
+              <div className="overflow-y-auto h-full pr-1 scrollbar-thin">
+                <div className="grid grid-cols-2 gap-2">
+                  {claimedItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className={`group rounded-lg ring-1 ring-foreground/5 overflow-hidden bg-card hover:shadow-md hover:shadow-primary/5 transition-all card-gradient-accent ${item.gifted_at ? "opacity-60" : ""}`}
+                    >
+                      {/* Image */}
+                      <div className="aspect-square bg-muted/40 relative overflow-hidden">
+                        {item.image_url ? (
+                          <img src={item.image_url} alt="" className={`h-full w-full object-contain p-2 transition-transform duration-300 group-hover:scale-105 ${item.gifted_at ? "grayscale" : ""}`} />
+                        ) : (
+                          <div className="h-full w-full flex items-center justify-center">
+                            <Gift className="h-6 w-6 text-muted-foreground/30" />
+                          </div>
+                        )}
+                        {/* Price badge */}
+                        {item.price && (
+                          <div className="absolute bottom-1.5 left-1.5">
+                            <Badge variant="secondary" className="bg-background/90 backdrop-blur-sm shadow-sm font-mono text-[10px] px-1.5 py-0">
+                              ${item.price.toFixed(2)}
+                            </Badge>
+                          </div>
+                        )}
+                        {/* Gifted overlay */}
+                        {item.gifted_at && (
+                          <div className="absolute inset-0 bg-background/40 flex items-center justify-center">
+                            <Badge variant="outline" className="shadow-sm gap-1 bg-background/80 backdrop-blur-sm text-[9px]">
+                              <Gift className="h-2 w-2" /> Delivered
+                            </Badge>
+                          </div>
+                        )}
+                        {/* Quick actions on hover */}
+                        <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200">
+                          <Button variant="secondary" size="icon-xs" className="h-6 w-6 bg-background/90 backdrop-blur-sm shadow-sm" onClick={() => window.open(item.link, "_blank", "noopener,noreferrer")}>
+                            <ExternalLink className="h-3 w-3" />
+                          </Button>
+                          <Button variant="secondary" size="icon-xs" className="h-6 w-6 bg-background/90 backdrop-blur-sm shadow-sm text-destructive hover:bg-destructive/10" onClick={() => handleUnclaim(item.id)}>
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </div>
-                    )}
-                    {/* Price badge */}
-                    {item.price && (
-                      <div className="absolute bottom-2 left-2">
-                        <Badge variant="secondary" className="bg-background/90 backdrop-blur-sm shadow-sm font-mono text-[11px]">
-                          ${item.price.toFixed(2)}
-                        </Badge>
+                      {/* Info */}
+                      <div className="p-2">
+                        <p className="text-[11px] font-medium leading-snug line-clamp-2 group-hover:text-primary transition-colors">{item.name}</p>
+                        {item.owner && (
+                          <p className="text-[9px] text-muted-foreground mt-0.5 flex items-center gap-1">
+                            for {item.owner.display_name.split(" ")[0]}
+                          </p>
+                        )}
                       </div>
-                    )}
-                    {/* Gifted/received overlay */}
-                    {item.gifted_at && (
-                      <div className="absolute inset-0 bg-background/40 flex items-center justify-center">
-                        <Badge variant="outline" className="shadow-sm gap-1 bg-background/80 backdrop-blur-sm">
-                          <Gift className="h-2.5 w-2.5" /> Delivered
-                        </Badge>
-                      </div>
-                    )}
-                    {/* Quick actions on hover */}
-                    <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-y-1 group-hover:translate-y-0">
-                      <Button variant="secondary" size="icon-xs" className="bg-background/90 backdrop-blur-sm shadow-sm" onClick={() => window.open(item.link, "_blank", "noopener,noreferrer")}>
-                        <ExternalLink className="h-2.5 w-2.5" />
-                      </Button>
-                      <Button variant="secondary" size="icon-xs" className="bg-background/90 backdrop-blur-sm shadow-sm text-destructive hover:bg-destructive/10" onClick={() => handleUnclaim(item.id)}>
-                        <X className="h-2.5 w-2.5" />
-                      </Button>
                     </div>
-                  </div>
-                  {/* Info */}
-                  <div className="p-2.5">
-                    <p className="text-xs font-medium leading-snug line-clamp-2 group-hover:text-primary transition-colors">{item.name}</p>
-                    {item.owner && (
-                      <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
-                        for {item.owner.display_name.split(" ")[0]}
-                      </p>
-                    )}
-                  </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* ── QR Code Modal ─────────────────────────────── */}
       <Dialog open={qrOpen} onOpenChange={setQrOpen}>

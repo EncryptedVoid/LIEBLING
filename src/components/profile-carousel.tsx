@@ -56,14 +56,14 @@ export function ProfileCarousel({
   const showArrows = canScrollLeft || canScrollRight;
 
   return (
-    <div className="flex flex-col items-center gap-2">
+    <div className="flex flex-col items-center gap-3">
       {/* Helper text */}
       <p className="text-[10px] text-muted-foreground/60 uppercase tracking-widest font-medium">
         {friends.length > 0 ? "Switch wishlists" : "Your wishlist"}
       </p>
 
       <div className="relative w-full">
-        {/* Left arrow — only when scrollable */}
+        {/* Left arrow */}
         {showArrows && canScrollLeft && (
           <Button
             variant="outline"
@@ -78,7 +78,7 @@ export function ProfileCarousel({
         {/* Scrollable container */}
         <div
           ref={scrollRef}
-          className="flex gap-2 overflow-x-auto scrollbar-hide py-2 px-2 scroll-smooth justify-center"
+          className="flex gap-3 overflow-x-auto scrollbar-hide py-3 px-2 scroll-smooth justify-center"
         >
           {allUsers.map((user) => {
             const isActive = user.id === activeUserId;
@@ -94,7 +94,7 @@ export function ProfileCarousel({
               <button
                 key={user.id}
                 onClick={() => onSelect(user.id)}
-                className={`flex flex-col items-center gap-2 shrink-0 transition-all duration-300 rounded-2xl px-3 py-3 min-w-[80px] ${
+                className={`flex flex-col items-center gap-2.5 shrink-0 transition-all duration-300 rounded-2xl px-4 py-3 min-w-[100px] ${
                   isActive
                     ? "scale-105"
                     : "hover:scale-[1.03] opacity-60 hover:opacity-100"
@@ -107,14 +107,11 @@ export function ProfileCarousel({
                       : ""
                   }`}
                 >
-                  <Avatar
-                    className={`h-16 w-16 transition-all duration-300 ${
-                      isActive ? "" : ""
-                    }`}
-                  >
+                  {/* LARGER AVATAR: h-20 w-20 (was h-16 w-16) */}
+                  <Avatar className="h-20 w-20 transition-all duration-300">
                     <AvatarImage src={user.avatar_url ?? undefined} />
                     <AvatarFallback
-                      className={`text-base font-semibold ${
+                      className={`text-lg font-semibold ${
                         isActive
                           ? "bg-gradient-to-br from-primary/20 to-primary/5 text-primary"
                           : "bg-muted text-muted-foreground"
@@ -124,15 +121,15 @@ export function ProfileCarousel({
                     </AvatarFallback>
                   </Avatar>
                   {isCurrentUser && (
-                    <div className="absolute -bottom-0.5 -right-0.5 h-5 w-5 rounded-full bg-primary border-[2.5px] border-background flex items-center justify-center shadow-sm">
-                      <span className="text-[7px] text-primary-foreground font-bold">
+                    <div className="absolute -bottom-0.5 -right-0.5 h-6 w-6 rounded-full bg-primary border-[2.5px] border-background flex items-center justify-center shadow-sm">
+                      <span className="text-[8px] text-primary-foreground font-bold">
                         ME
                       </span>
                     </div>
                   )}
                 </div>
                 <span
-                  className={`text-[11px] font-medium leading-tight text-center max-w-[70px] truncate transition-colors duration-200 ${
+                  className={`text-xs font-medium leading-tight text-center max-w-[80px] truncate transition-colors duration-200 ${
                     isActive ? "text-foreground" : "text-muted-foreground"
                   }`}
                 >
@@ -143,7 +140,7 @@ export function ProfileCarousel({
           })}
         </div>
 
-        {/* Right arrow — only when scrollable */}
+        {/* Right arrow */}
         {showArrows && canScrollRight && (
           <Button
             variant="outline"

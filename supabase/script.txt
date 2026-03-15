@@ -1,0 +1,345 @@
+-- ═══════════════════════════════════════════════════════
+-- Add gifted_at to items
+-- When set, the item is marked as "received/bought"
+-- ═══════════════════════════════════════════════════════
+ALTER TABLE items
+  ADD COLUMN IF NOT EXISTS gifted_at timestamptz DEFAULT NULL;
+
+-- ═══════════════════════════════════════════════════════
+-- Add emoji and is_system to collections
+-- is_system = true means the collection is auto-managed
+-- (e.g. the "Gifted" collection) and cannot be
+-- deleted or renamed by the user.
+-- ═══════════════════════════════════════════════════════
+ALTER TABLE collections
+  ADD COLUMN IF NOT EXISTS emoji text DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS is_system boolean NOT NULL DEFAULT false;
+
+-- ═══════════════════════════════════════════════════════
+-- Prevent deletion of system collections via RLS or trigger
+-- ═══════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION prevent_system_collection_mutation()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF OLD.is_system = true THEN
+    RAISE EXCEPTION 'Cannot modify or delete a system collection.';
+  END IF;
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Block DELETE on system collections
+DROP TRIGGER IF EXISTS trg_prevent_system_collection_delete ON collections;
+CREATE TRIGGER trg_prevent_system_collection_delete
+  BEFORE DELETE ON collections
+  FOR EACH ROW
+  EXECUTE FUNCTION prevent_system_collection_mutation();
+
+-- Block UPDATE of name/is_system on system collections
+CREATE OR REPLACE FUNCTION prevent_system_collection_rename()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF OLD.is_system = true AND (
+    NEW.name != OLD.name OR
+    NEW.is_system != OLD.is_system
+  ) THEN
+    RAISE EXCEPTION 'Cannot rename or change a system collection.';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_prevent_system_collection_rename ON collections;
+CREATE TRIGGER trg_prevent_system_collection_rename
+  BEFORE UPDATE ON collections
+  FOR EACH ROW
+  EXECUTE FUNCTION prevent_system_collection_rename();
+
+COMMENT ON COLUMN items.gifted_at IS 'When set, the item has been received/bought and is moved to the Gifted collection.';
+COMMENT ON COLUMN collections.emoji IS 'Optional emoji icon for the collection.';
+COMMENT ON COLUMN collections.is_system IS 'System collections (e.g. Gifted) cannot be deleted or renamed.';
+
+-- ═══════════════════════════════════════════════════════
+-- Create avatars storage bucket
+-- ═══════════════════════════════════════════════════════
+
+insert into storage.buckets (id, name, public)
+values ('avatars', 'avatars', true);
+
+create policy "Users can upload their own avatar"
+  on storage.objects for insert
+  with check (
+    bucket_id = 'avatars'
+    and auth.role() = 'authenticated'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+create policy "Users can update their own avatar"
+  on storage.objects for update
+  using (
+    bucket_id = 'avatars'
+    and auth.role() = 'authenticated'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+create policy "Anyone can read avatars"
+  on storage.objects for select
+  using (bucket_id = 'avatars');
+
+-- ═══════════════════════════════════════════════════════
+-- Add preference columns to users table
+-- ═══════════════════════════════════════════════════════
+
+alter table public.users
+  add column birthday date,
+  add column theme_mode text not null default 'light' check (theme_mode in ('light', 'dark')),
+  add column theme_color text not null default 'zinc' check (theme_color in ('zinc', 'rose', 'blue', 'green', 'orange', 'violet')),
+  add column onboarded boolean not null default false;
+
+update public.users set onboarded = true;
+
+-- ═══════════════════════════════════════════════════════
+-- ITEM ↔ COLLECTION many-to-many junction table
+-- ═══════════════════════════════════════════════════════
+
+create table public.item_collections (
+  item_id       uuid not null references public.items(id) on delete cascade,
+  collection_id uuid not null references public.collections(id) on delete cascade,
+  primary key (item_id, collection_id)
+);
+
+create index idx_item_collections_item on public.item_collections(item_id);
+create index idx_item_collections_collection on public.item_collections(collection_id);
+
+-- Migrate existing data
+insert into public.item_collections (item_id, collection_id)
+select id, collection_id
+from public.items
+where collection_id is not null;
+
+-- Drop the old column
+drop view if exists public.items_visible;
+
+alter table public.items drop column collection_id;
+
+-- Recreate the view without collection_id
+create or replace view public.items_visible
+with (security_invoker = true)
+as
+select
+  i.id,
+  i.user_id,
+  i.name,
+  i.price,
+  i.image_url,
+  i.link,
+  i.created_at,
+  case
+    when i.user_id = auth.uid() then false
+    else i.is_claimed
+  end as is_claimed,
+  case
+    when i.user_id = auth.uid() then null
+    when i.claimed_by = auth.uid() then i.claimed_by
+    else null
+  end as claimed_by,
+  coalesce(
+    array_agg(ic.collection_id) filter (where ic.collection_id is not null),
+    '{}'
+  ) as collection_ids
+from public.items i
+left join public.item_collections ic on ic.item_id = i.id
+group by i.id;
+
+-- RLS on junction table
+alter table public.item_collections enable row level security;
+
+create policy "ItemCollections: owner can read"
+  on public.item_collections for select
+  using (
+    exists (select 1 from public.items where id = item_id and user_id = auth.uid())
+  );
+
+create policy "ItemCollections: friends can read"
+  on public.item_collections for select
+  using (
+    exists (
+      select 1 from public.items i
+      where i.id = item_id
+        and public.are_friends(auth.uid(), i.user_id)
+    )
+  );
+
+create policy "ItemCollections: owner can insert"
+  on public.item_collections for insert
+  with check (
+    exists (select 1 from public.items where id = item_id and user_id = auth.uid())
+  );
+
+create policy "ItemCollections: owner can delete"
+  on public.item_collections for delete
+  using (
+    exists (select 1 from public.items where id = item_id and user_id = auth.uid())
+  );
+
+-- ═══════════════════════════════════════════════════════
+-- CLAIM AN ITEM
+-- ═══════════════════════════════════════════════════════
+
+create or replace function public.claim_item(item_id uuid)
+returns void
+language plpgsql
+security definer set search_path = ''
+as $$
+declare
+  v_item     record;
+  v_caller   uuid := auth.uid();
+  v_is_friend boolean;
+begin
+  -- Get the item
+  select * into v_item
+  from public.items
+  where id = item_id;
+
+  if not found then
+    raise exception 'Item not found.';
+  end if;
+
+  -- Can't claim your own item
+  if v_item.user_id = v_caller then
+    raise exception 'You cannot claim your own item.';
+  end if;
+
+  -- Check friendship exists and is accepted
+  select exists (
+    select 1 from public.friendships
+    where status = 'accepted'
+      and (
+        (requester_id = v_caller and addressee_id = v_item.user_id)
+        or
+        (requester_id = v_item.user_id and addressee_id = v_caller)
+      )
+  ) into v_is_friend;
+
+  if not v_is_friend then
+    raise exception 'You must be friends to claim items.';
+  end if;
+
+  -- Try to claim — only succeeds if not already claimed (race-safe)
+  update public.items
+  set is_claimed = true,
+      claimed_by = v_caller
+  where id = item_id
+    and is_claimed = false;
+
+  if not found then
+    raise exception 'Item is already claimed.';
+  end if;
+end;
+$$;
+
+-- ═══════════════════════════════════════════════════════
+-- UNCLAIM AN ITEM
+-- ═══════════════════════════════════════════════════════
+
+create or replace function public.unclaim_item(item_id uuid)
+returns void
+language plpgsql
+security definer set search_path = ''
+as $$
+declare
+  v_caller uuid := auth.uid();
+begin
+  update public.items
+  set is_claimed = false,
+      claimed_by = null
+  where id = item_id
+    and claimed_by = v_caller;
+
+  if not found then
+    raise exception 'You can only unclaim items you claimed.';
+  end if;
+end;
+$$;
+
+-- ═══════════════════════════════════════════════════════
+-- ITEMS_VISIBLE VIEW
+-- ═══════════════════════════════════════════════════════
+
+create or replace view public.items_visible
+with (security_invoker = true)
+as
+select
+  id,
+  user_id,
+  collection_id,
+  name,
+  price,
+  image_url,
+  link,
+  created_at,
+
+  case
+    when user_id = auth.uid() then false
+    else is_claimed
+  end as is_claimed,
+
+  case
+    when user_id = auth.uid() then null
+    when claimed_by = auth.uid() then claimed_by
+    else null
+  end as claimed_by
+
+from public.items;
+
+-- ═══════════════════════════════════════════════════════
+-- FRIEND CODE GENERATOR
+-- ═══════════════════════════════════════════════════════
+
+create or replace function public.generate_friend_code()
+returns text
+language plpgsql
+as $$
+declare
+  chars text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  code  text;
+  i     int;
+begin
+  loop
+    code := 'LIEB-';
+    for i in 1..4 loop
+      code := code || substr(chars, floor(random() * length(chars) + 1)::int, 1);
+    end loop;
+
+    if not exists (select 1 from public.users where friend_code = code) then
+      return code;
+    end if;
+  end loop;
+end;
+$$;
+
+-- ═══════════════════════════════════════════════════════
+-- AUTO-CREATE PROFILE ON SIGNUP
+-- ═══════════════════════════════════════════════════════
+
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  insert into public.users (id, display_name, avatar_url, friend_code)
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data ->> 'display_name', 'User'),
+    new.raw_user_meta_data ->> 'avatar_url',
+    public.generate_friend_code()
+  );
+  return new;
+end;
+$$;
+
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row
+  execute function public.handle_new_user();

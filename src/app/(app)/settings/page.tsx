@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { createClient } from "@/lib/supabase/client";
 import { THEME_COLORS } from "@/lib/theme-colors";
-import { Check, Sun, Moon } from "lucide-react";
+import { Check, Sun, Moon, Clock } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,9 +47,10 @@ export default function SettingsPage() {
   const [birthday, setBirthday] = useState<Date | undefined>();
   const [themeMode, setThemeMode] = useState<"light" | "dark">("light");
   const [themeColor, setThemeColor] = useState("zinc");
+  const [timeFormat, setTimeFormat] = useState<"12h" | "24h">("12h");
   const [loading, setLoading] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
-  const [savingTheme, setSavingTheme] = useState(false);
+  const [savingAppearance, setSavingAppearance] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -57,7 +58,7 @@ export default function SettingsPage() {
       if (!user) return;
       const { data } = await supabase
         .from("users")
-        .select("display_name, avatar_url, birthday, theme_mode, theme_color")
+        .select("display_name, avatar_url, birthday, theme_mode, theme_color, time_format")
         .eq("id", user.id)
         .single();
       if (data) {
@@ -66,6 +67,7 @@ export default function SettingsPage() {
         setBirthday(data.birthday ? new Date(data.birthday) : undefined);
         setThemeMode(data.theme_mode);
         setThemeColor(data.theme_color);
+        setTimeFormat(data.time_format || "12h");
       }
       setLoading(false);
     }
@@ -83,15 +85,15 @@ export default function SettingsPage() {
     setSavingProfile(false);
   }
 
-  async function handleSaveTheme() {
-    setSavingTheme(true);
+  async function handleSaveAppearance() {
+    setSavingAppearance(true);
     const { data: { user } } = await supabase.auth.getUser();
     const { error } = await supabase
       .from("users")
-      .update({ theme_mode: themeMode, theme_color: themeColor })
+      .update({ theme_mode: themeMode, theme_color: themeColor, time_format: timeFormat })
       .eq("id", user!.id);
-    if (error) { toast.error("Couldn't save theme."); } else { toast.success("Theme updated. Refreshing..."); router.refresh(); }
-    setSavingTheme(false);
+    if (error) { toast.error("Couldn't save preferences."); } else { toast.success("Preferences updated. Refreshing..."); router.refresh(); }
+    setSavingAppearance(false);
   }
 
   async function handleDeleteAccount() {
@@ -165,11 +167,11 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* Appearance */}
+        {/* Appearance & Preferences */}
         <Card className="shadow-sm">
           <CardHeader>
-            <CardTitle className="text-sm">Appearance</CardTitle>
-            <CardDescription>Customize how Lieblings looks.</CardDescription>
+            <CardTitle className="text-sm">Appearance & Preferences</CardTitle>
+            <CardDescription>Customize how Lieblings looks and works.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-5">
             {/* Mode */}
@@ -202,24 +204,51 @@ export default function SettingsPage() {
                   <button
                     key={color.id}
                     onClick={() => setThemeColor(color.id)}
-                    className={`flex flex-col items-center gap-1.5 rounded-xl border-2 p-3 transition-all ${
+                    className={`flex flex-col items-center gap-1.5 rounded-xl border-2 p-2.5 transition-all ${
                       themeColor === color.id
                         ? "border-foreground shadow-sm scale-[1.02]"
                         : "border-muted hover:border-muted-foreground/20 hover:scale-[1.01]"
                     }`}
                   >
                     <div
-                      className="h-6 w-6 rounded-full shadow-inner ring-1 ring-black/5"
+                      className="h-5 w-5 rounded-full shadow-inner ring-1 ring-black/5"
                       style={{ backgroundColor: color.preview }}
                     />
-                    <span className="text-[10px] font-medium">{color.label}</span>
+                    <span className="text-[9px] font-medium">{color.label}</span>
                   </button>
                 ))}
               </div>
             </div>
 
-            <Button onClick={handleSaveTheme} disabled={savingTheme} className="shadow-sm">
-              {savingTheme ? "Saving..." : "Save appearance"}
+            {/* Time format */}
+            <div className="flex flex-col gap-2">
+              <Label className="flex items-center gap-1.5">
+                <Clock className="h-3 w-3" />
+                Time Format
+              </Label>
+              <div className="flex gap-3">
+                {(["12h", "24h"] as const).map((fmt) => (
+                  <button
+                    key={fmt}
+                    onClick={() => setTimeFormat(fmt)}
+                    className={`flex-1 flex flex-col items-center gap-1 rounded-xl border-2 p-3 transition-all ${
+                      timeFormat === fmt
+                        ? "border-primary bg-primary/5 shadow-sm"
+                        : "border-muted hover:border-muted-foreground/20"
+                    }`}
+                  >
+                    <span className="text-sm font-mono font-medium">
+                      {fmt === "12h" ? "2:30 PM" : "14:30"}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">{fmt === "12h" ? "12-hour" : "24-hour"}</span>
+                    {timeFormat === fmt && <Check className="h-3 w-3 text-primary" />}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <Button onClick={handleSaveAppearance} disabled={savingAppearance} className="shadow-sm">
+              {savingAppearance ? "Saving..." : "Save preferences"}
             </Button>
           </CardContent>
         </Card>

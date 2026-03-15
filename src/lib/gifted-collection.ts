@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export const GIFTED_COLLECTION_NAME = "Gifted";
+export const GIFTED_COLLECTION_NAME = "Gifted/Received Items";
 export const GIFTED_COLLECTION_EMOJI = "🎁";
 
 /**

@@ -3,12 +3,19 @@
 import { useState } from "react";
 import Link from "next/link";
 import { format, formatDistanceToNow, isPast } from "date-fns";
-import { MapPin, Pencil, Trash2 } from "lucide-react";
+import { MapPin, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,15 +28,16 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 
-import type { Event } from "@/lib/types";
+import type { Event, User } from "@/lib/types";
 
 type EventCardProps = {
-  event: Event & { collection_name?: string | null };
+  event: Event & { collection_name?: string | null; owner?: User };
   onDelete?: (id: string) => void;
   onEdit?: (event: Event) => void;
+  showOwnerBadge?: boolean;
 };
 
-export function EventCard({ event, onDelete, onEdit }: EventCardProps) {
+export function EventCard({ event, onDelete, onEdit, showOwnerBadge = false }: EventCardProps) {
   const supabase = createClient();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -46,11 +54,47 @@ export function EventCard({ event, onDelete, onEdit }: EventCardProps) {
     setShowDeleteDialog(false);
   }
 
+  // Format time display (this would ideally use user's preference)
+  function formatTime(time: string) {
+    // Simple 24h to 12h conversion for now
+    // TODO: Use user's time_format preference
+    const [hours, minutes] = time.split(":").map(Number);
+    const ampm = hours >= 12 ? "PM" : "AM";
+    const hour12 = hours % 12 || 12;
+    return `${hour12}:${minutes.toString().padStart(2, "0")} ${ampm}`;
+  }
+
   return (
     <>
-      <Card className="overflow-hidden group transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-1 hover:ring-primary/20 card-gradient-accent">
-        {/* Color accent */}
-        <div className={`h-0.5 ${past ? "bg-muted-foreground/20" : "bg-gradient-to-r from-primary/60 via-primary/20 to-transparent"}`} />
+      <Card className="overflow-hidden group transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-0.5 card-gradient-accent relative">
+        {/* Banner image */}
+        {event.banner_url && (
+          <div className="h-24 overflow-hidden">
+            <img
+              src={event.banner_url}
+              alt=""
+              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            />
+          </div>
+        )}
+
+        {/* Color accent bar (only if no banner) */}
+        {!event.banner_url && (
+          <div className={`h-1 ${past ? "bg-muted-foreground/20" : "bg-gradient-to-r from-primary/60 via-primary/20 to-transparent"}`} />
+        )}
+
+        {/* Owner badge (for timeline view) */}
+        {showOwnerBadge && event.owner && (
+          <div className="absolute top-2 right-2 z-10">
+            <div className="flex items-center gap-1.5 bg-background/90 backdrop-blur-sm rounded-full pl-1 pr-2 py-0.5 shadow-sm ring-1 ring-foreground/10">
+              <Avatar className="h-5 w-5">
+                <AvatarImage src={event.owner.avatar_url ?? undefined} />
+                <AvatarFallback className="text-[8px]">{event.owner.display_name[0]?.toUpperCase()}</AvatarFallback>
+              </Avatar>
+              <span className="text-[10px] font-medium">{event.owner.display_name.split(" ")[0]}</span>
+            </div>
+          </div>
+        )}
 
         <Link href={`/events/${event.id}`}>
           <CardContent className="p-4 flex gap-3">
@@ -65,42 +109,68 @@ export function EventCard({ event, onDelete, onEdit }: EventCardProps) {
             {/* Info */}
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-2">
-                <h3 className="font-medium text-xs leading-snug group-hover:text-primary transition-colors">{event.title}</h3>
-                {!past && (
-                  <Badge className="shrink-0 text-[10px] shadow-sm">{formatDistanceToNow(eventDate, { addSuffix: true })}</Badge>
-                )}
-                {past && <Badge variant="outline" className="shrink-0 text-[10px]">Past</Badge>}
+                <h3 className="font-medium text-sm leading-snug group-hover:text-primary transition-colors line-clamp-1">
+                  {showOwnerBadge && event.owner ? `${event.owner.display_name.split(" ")[0]}'s ${event.title}` : event.title}
+                </h3>
+                <div className="flex items-center gap-1 shrink-0">
+                  {!past && (
+                    <Badge className="text-[10px] shadow-sm">{formatDistanceToNow(eventDate, { addSuffix: true })}</Badge>
+                  )}
+                  {past && <Badge variant="outline" className="text-[10px]">Past</Badge>}
+                </div>
               </div>
+
               <p className="text-[11px] text-muted-foreground mt-1">
-                {format(eventDate, "EEEE, MMMM d, yyyy")}{event.time && ` at ${event.time}`}
+                {format(eventDate, "EEEE, MMMM d, yyyy")}
+                {event.time && ` at ${formatTime(event.time)}`}
               </p>
+
               {event.location && (
                 <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
                   <MapPin className="h-2.5 w-2.5" />{event.location}
                 </p>
               )}
+
               {event.collection_name && (
-                <Badge variant="secondary" className="mt-1.5 text-[10px] shadow-sm">{event.collection_name}</Badge>
+                <Badge variant="secondary" className="mt-2 text-[10px] shadow-sm">{event.collection_name}</Badge>
               )}
             </div>
+
+            {/* Three-dot menu */}
+            {editable && (
+              <div onClick={(e) => e.preventDefault()}>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-32">
+                    {onEdit && (
+                      <DropdownMenuItem onClick={() => onEdit(event)}>
+                        <Pencil className="h-3 w-3 mr-2" />
+                        Edit
+                      </DropdownMenuItem>
+                    )}
+                    {onDelete && (
+                      <DropdownMenuItem
+                        onClick={() => setShowDeleteDialog(true)}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <Trash2 className="h-3 w-3 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
           </CardContent>
         </Link>
-
-        {/* Actions */}
-        {editable && (
-          <div className="px-4 pb-3 pt-0 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-y-1 group-hover:translate-y-0">
-            {onEdit && (
-              <Button variant="outline" size="sm" className="flex-1 gap-1 h-6 text-[10px]" onClick={() => onEdit(event)}>
-                <Pencil className="h-2.5 w-2.5" />Edit
-              </Button>
-            )}
-            {onDelete && (
-              <Button variant="outline" size="sm" className="flex-1 gap-1 h-6 text-[10px] text-destructive hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30" onClick={() => setShowDeleteDialog(true)}>
-                <Trash2 className="h-2.5 w-2.5" />Delete
-              </Button>
-            )}
-          </div>
-        )}
       </Card>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

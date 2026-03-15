@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { isPast } from "date-fns";
-import { Plus } from "lucide-react";
+import { Plus, Users, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -19,6 +19,8 @@ type EventWithMeta = Event & {
   owner?: User;
 };
 
+type ViewMode = "timeline" | "by-friend";
+
 export default function EventsPage() {
   const supabase = createClient();
   const [currentUserId, setCurrentUserId] = useState("");
@@ -29,6 +31,9 @@ export default function EventsPage() {
 
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+
+  // View mode for friends' events
+  const [friendViewMode, setFriendViewMode] = useState<ViewMode>("timeline");
 
   async function fetchData() {
     setLoading(true);
@@ -72,7 +77,32 @@ export default function EventsPage() {
   const friendUpcoming = friendEvents.filter((e) => !isPast(new Date(e.date)));
   const allPast = [...events, ...friendEvents].filter((e) => isPast(new Date(e.date))).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  function EventList({ items, showOwner = false, editable = false }: { items: EventWithMeta[]; showOwner?: boolean; editable?: boolean; }) {
+  // Group friend events by user
+  const friendEventsByUser = friendUpcoming.reduce((acc, event) => {
+    const userId = event.user_id;
+    if (!acc[userId]) {
+      acc[userId] = {
+        user: event.owner!,
+        events: [],
+      };
+    }
+    acc[userId].events.push(event);
+    return acc;
+  }, {} as Record<string, { user: User; events: EventWithMeta[] }>);
+
+  // Sort groups by earliest event date
+  const sortedUserGroups = Object.values(friendEventsByUser).sort((a, b) => {
+    const aDate = new Date(a.events[0]?.date ?? 0);
+    const bDate = new Date(b.events[0]?.date ?? 0);
+    return aDate.getTime() - bDate.getTime();
+  });
+
+  function EventList({ items, showOwner = false, editable = false, showOwnerBadge = false }: { 
+    items: EventWithMeta[]; 
+    showOwner?: boolean; 
+    editable?: boolean;
+    showOwnerBadge?: boolean;
+  }) {
     if (loading) {
       return (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 stagger-grid">
@@ -99,7 +129,7 @@ export default function EventsPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 stagger-grid">
         {items.map((event) => (
           <div key={event.id}>
-            {showOwner && event.owner && (
+            {showOwner && event.owner && !showOwnerBadge && (
               <div className="flex items-center gap-2 mb-2 px-1">
                 <Avatar className="h-5 w-5">
                   <AvatarImage src={event.owner.avatar_url ?? undefined} />
@@ -108,9 +138,96 @@ export default function EventsPage() {
                 <span className="text-[11px] text-muted-foreground">{event.owner.display_name}</span>
               </div>
             )}
-            <EventCard event={event} onDelete={editable ? handleDelete : undefined} onEdit={editable ? handleEdit : undefined} />
+            <EventCard 
+              event={event} 
+              onDelete={editable ? handleDelete : undefined} 
+              onEdit={editable ? handleEdit : undefined}
+              showOwnerBadge={showOwnerBadge}
+            />
           </div>
         ))}
+      </div>
+    );
+  }
+
+  function FriendsEventsList() {
+    if (loading) {
+      return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 stagger-grid">
+          {Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)}
+        </div>
+      );
+    }
+
+    if (friendUpcoming.length === 0) {
+      return (
+        <EmptyState
+          variant="events"
+          title="No events here"
+          description="Your friends haven't added any events yet."
+        />
+      );
+    }
+
+    // Toggle between timeline and by-friend views
+    return (
+      <div className="space-y-4">
+        {/* View toggle */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">View:</span>
+          <div className="flex ring-1 ring-foreground/10 rounded-md overflow-hidden">
+            <Button
+              variant={friendViewMode === "timeline" ? "default" : "ghost"}
+              size="sm"
+              className="rounded-none gap-1.5"
+              onClick={() => setFriendViewMode("timeline")}
+            >
+              <Clock className="h-3 w-3" />
+              Timeline
+            </Button>
+            <Button
+              variant={friendViewMode === "by-friend" ? "default" : "ghost"}
+              size="sm"
+              className="rounded-none gap-1.5"
+              onClick={() => setFriendViewMode("by-friend")}
+            >
+              <Users className="h-3 w-3" />
+              By Friend
+            </Button>
+          </div>
+        </div>
+
+        {friendViewMode === "timeline" ? (
+          // Timeline view: all events chronologically with owner badge
+          <EventList items={friendUpcoming} showOwnerBadge />
+        ) : (
+          // By-friend view: grouped by user
+          <div className="space-y-6">
+            {sortedUserGroups.map(({ user, events: userEvents }) => (
+              <div key={user.id}>
+                {/* User header */}
+                <div className="flex items-center gap-3 mb-3 pb-2 border-b">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={user.avatar_url ?? undefined} />
+                    <AvatarFallback className="text-xs">{user.display_name[0]?.toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="text-sm font-medium">{user.display_name}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {userEvents.length} upcoming event{userEvents.length !== 1 ? "s" : ""}
+                    </p>
+                  </div>
+                </div>
+                {/* User's events */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-4 border-l-2 border-primary/20">
+                  {userEvents.map((event) => (
+                    <EventCard key={event.id} event={event} />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
@@ -134,7 +251,7 @@ export default function EventsPage() {
           <TabsTrigger value="past">Past ({allPast.length})</TabsTrigger>
         </TabsList>
         <TabsContent value="mine" className="mt-4"><EventList items={myUpcoming} editable /></TabsContent>
-        <TabsContent value="friends" className="mt-4"><EventList items={friendUpcoming} showOwner /></TabsContent>
+        <TabsContent value="friends" className="mt-4"><FriendsEventsList /></TabsContent>
         <TabsContent value="past" className="mt-4"><EventList items={allPast} showOwner /></TabsContent>
       </Tabs>
 

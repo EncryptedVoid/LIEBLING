@@ -73,29 +73,20 @@ export function ItemCard(props: ItemCardProps) {
     if (variant !== "owner") return;
     setLoading(true);
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not logged in.");
-
-      // Get or create the Gifted collection
       const giftedColId = await getOrCreateGiftedCollection(supabase, user.id);
-
-      // Set gifted_at timestamp
       const { error: updateErr } = await supabase
         .from("items")
         .update({ gifted_at: new Date().toISOString() })
         .eq("id", item.id);
       if (updateErr) throw updateErr;
-
-      // Add to Gifted collection if not already there
       if (!item.collection_ids?.includes(giftedColId)) {
         const { error: linkErr } = await supabase
           .from("item_collections")
           .insert({ item_id: item.id, collection_id: giftedColId });
         if (linkErr && !linkErr.message.includes("duplicate")) throw linkErr;
       }
-
       toast.success("Marked as received!");
       props.onGiftedToggle?.();
     } catch (err: any) {
@@ -108,26 +99,19 @@ export function ItemCard(props: ItemCardProps) {
     if (variant !== "owner") return;
     setLoading(true);
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not logged in.");
-
-      // Clear gifted_at
       const { error: updateErr } = await supabase
         .from("items")
         .update({ gifted_at: null })
         .eq("id", item.id);
       if (updateErr) throw updateErr;
-
-      // Remove from Gifted collection
       const { data: giftedCol } = await supabase
         .from("collections")
         .select("id")
         .eq("user_id", user.id)
         .eq("is_system", true)
         .single();
-
       if (giftedCol) {
         await supabase
           .from("item_collections")
@@ -135,7 +119,6 @@ export function ItemCard(props: ItemCardProps) {
           .eq("item_id", item.id)
           .eq("collection_id", giftedCol.id);
       }
-
       toast.success("Restored to wishlist.");
       props.onGiftedToggle?.();
     } catch (err: any) {
@@ -174,8 +157,7 @@ export function ItemCard(props: ItemCardProps) {
     setLoading(false);
   }
 
-  const isClaimedByMe =
-    variant === "friend" && item.claimed_by === props.currentUserId;
+  const isClaimedByMe = variant === "friend" && item.claimed_by === props.currentUserId;
 
   function openLink() {
     window.open(item.link, "_blank", "noopener,noreferrer");
@@ -248,54 +230,56 @@ export function ItemCard(props: ItemCardProps) {
             )}
           </div>
 
-          {/* Actions */}
+          {/* Actions - LARGER BUTTONS */}
           <div
-            className="flex items-center gap-1 shrink-0"
+            className="flex items-center gap-1.5 shrink-0"
             onClick={(e) => e.stopPropagation()}
           >
             {variant === "owner" && (
-              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                 {!isGifted && (
                   <Button
                     variant="ghost"
-                    size="icon-xs"
+                    size="icon-sm"
+                    className="h-8 w-8"
                     onClick={() => props.onEdit?.(item)}
                   >
-                    <Pencil className="h-3 w-3" />
+                    <Pencil className="h-4 w-4" />
                   </Button>
                 )}
                 <Button
                   variant="ghost"
-                  size="icon-xs"
+                  size="icon-sm"
+                  className="h-8 w-8"
                   onClick={isGifted ? handleUnmarkGifted : handleMarkGifted}
                   disabled={loading}
                   title={isGifted ? "Mark as not received" : "Mark as received"}
                 >
                   {isGifted ? (
-                    <Undo2 className="h-3 w-3" />
+                    <Undo2 className="h-4 w-4" />
                   ) : (
-                    <Gift className="h-3 w-3" />
+                    <Gift className="h-4 w-4" />
                   )}
                 </Button>
                 <Button
                   variant="ghost"
-                  size="icon-xs"
-                  className="text-destructive hover:bg-destructive/10"
+                  size="icon-sm"
+                  className="h-8 w-8 text-destructive hover:bg-destructive/10"
                   onClick={() => setShowDeleteDialog(true)}
                 >
-                  <Trash2 className="h-3 w-3" />
+                  <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
             )}
             {variant === "friend" && !item.is_claimed && !isGifted && (
-              <Button size="xs" onClick={handleClaim} disabled={loading}>
+              <Button size="sm" onClick={handleClaim} disabled={loading}>
                 {loading ? "..." : "Claim"}
               </Button>
             )}
             {variant === "friend" && isClaimedByMe && (
               <Button
                 variant="outline"
-                size="xs"
+                size="sm"
                 onClick={handleUnclaim}
                 disabled={loading}
               >
@@ -304,26 +288,19 @@ export function ItemCard(props: ItemCardProps) {
             )}
             <Button
               variant="ghost"
-              size="icon-xs"
-              className="opacity-0 group-hover:opacity-100 transition-opacity"
+              size="icon-sm"
+              className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
             >
-              <ExternalLink className="h-3 w-3" />
+              <ExternalLink className="h-4 w-4" />
             </Button>
           </div>
         </div>
 
-        <AlertDialog
-          open={showDeleteDialog}
-          onOpenChange={setShowDeleteDialog}
-        >
+        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>
-                Delete &quot;{item.name}&quot;?
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                This can&apos;t be undone.
-              </AlertDialogDescription>
+              <AlertDialogTitle>Delete &quot;{item.name}&quot;?</AlertDialogTitle>
+              <AlertDialogDescription>This can&apos;t be undone.</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
@@ -385,54 +362,54 @@ export function ItemCard(props: ItemCardProps) {
               </div>
             )}
 
-            {/* Owner hover actions — top right */}
+            {/* Owner hover actions — top right - LARGER BUTTONS */}
             {variant === "owner" && (
               <div
-                className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-y-1 group-hover:translate-y-0"
+                className="absolute top-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-y-1 group-hover:translate-y-0"
                 onClick={(e) => e.stopPropagation()}
               >
                 {!isGifted && (
                   <Button
                     variant="secondary"
-                    size="icon-xs"
-                    className="bg-background/90 backdrop-blur-sm shadow-sm hover:bg-background"
+                    size="icon-sm"
+                    className="h-8 w-8 bg-background/95 backdrop-blur-sm shadow-md hover:bg-background"
                     onClick={() => props.onEdit?.(item)}
                     title="Edit"
                   >
-                    <Pencil className="h-2.5 w-2.5" />
+                    <Pencil className="h-4 w-4" />
                   </Button>
                 )}
                 <Button
                   variant="secondary"
-                  size="icon-xs"
-                  className="bg-background/90 backdrop-blur-sm shadow-sm hover:bg-background"
+                  size="icon-sm"
+                  className="h-8 w-8 bg-background/95 backdrop-blur-sm shadow-md hover:bg-background"
                   onClick={isGifted ? handleUnmarkGifted : handleMarkGifted}
                   disabled={loading}
                   title={isGifted ? "Mark as not received" : "Mark as received"}
                 >
                   {isGifted ? (
-                    <Undo2 className="h-2.5 w-2.5" />
+                    <Undo2 className="h-4 w-4" />
                   ) : (
-                    <Gift className="h-2.5 w-2.5" />
+                    <Gift className="h-4 w-4" />
                   )}
                 </Button>
                 <Button
                   variant="secondary"
-                  size="icon-xs"
-                  className="bg-background/90 backdrop-blur-sm shadow-sm text-destructive hover:bg-destructive/10"
+                  size="icon-sm"
+                  className="h-8 w-8 bg-background/95 backdrop-blur-sm shadow-md text-destructive hover:bg-destructive/10"
                   onClick={() => setShowDeleteDialog(true)}
                   title="Delete"
                 >
-                  <Trash2 className="h-2.5 w-2.5" />
+                  <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
             )}
 
             {/* External link icon — friends */}
             {variant === "friend" && (
-              <div className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-y-1 group-hover:translate-y-0">
-                <div className="h-6 w-6 rounded-full bg-background/90 backdrop-blur-sm shadow-sm flex items-center justify-center">
-                  <ExternalLink className="h-2.5 w-2.5 text-muted-foreground" />
+              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-y-1 group-hover:translate-y-0">
+                <div className="h-8 w-8 rounded-full bg-background/95 backdrop-blur-sm shadow-md flex items-center justify-center">
+                  <ExternalLink className="h-4 w-4 text-muted-foreground" />
                 </div>
               </div>
             )}
@@ -463,13 +440,10 @@ export function ItemCard(props: ItemCardProps) {
 
         {/* Friend claim button */}
         {variant === "friend" && !item.is_claimed && !isGifted && (
-          <div
-            className="px-3 pb-3 pt-0"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="px-3 pb-3 pt-0" onClick={(e) => e.stopPropagation()}>
             <Button
               size="sm"
-              className="w-full h-7 text-[11px] shadow-sm"
+              className="w-full shadow-sm"
               onClick={handleClaim}
               disabled={loading}
             >
@@ -478,14 +452,11 @@ export function ItemCard(props: ItemCardProps) {
           </div>
         )}
         {variant === "friend" && isClaimedByMe && !isGifted && (
-          <div
-            className="px-3 pb-3 pt-0"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="px-3 pb-3 pt-0" onClick={(e) => e.stopPropagation()}>
             <Button
               variant="outline"
               size="sm"
-              className="w-full h-7 text-[11px]"
+              className="w-full"
               onClick={handleUnclaim}
               disabled={loading}
             >
@@ -498,9 +469,7 @@ export function ItemCard(props: ItemCardProps) {
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              Delete &quot;{item.name}&quot;?
-            </AlertDialogTitle>
+            <AlertDialogTitle>Delete &quot;{item.name}&quot;?</AlertDialogTitle>
             <AlertDialogDescription>
               This item may have been claimed. Deleting can&apos;t be undone.
             </AlertDialogDescription>

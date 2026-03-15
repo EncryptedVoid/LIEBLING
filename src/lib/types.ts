@@ -6,6 +6,7 @@ export type User = {
   birthday: string | null;
   theme_mode: "light" | "dark";
   theme_color: "zinc" | "rose" | "blue" | "green" | "orange" | "violet";
+  time_format: "12h" | "24h"; // NEW
   onboarded: boolean;
   created_at: string;
 };
@@ -29,7 +30,8 @@ export type Collection = {
   user_id: string;
   name: string;
   emoji: string | null;
-  is_system: boolean; // true for the auto-created "Gifted" collection
+  banner_url: string | null; // NEW
+  is_system: boolean;
   created_at: string;
 };
 
@@ -42,6 +44,7 @@ export type Event = {
   date: string;
   time: string | null;
   location: string | null;
+  banner_url: string | null; // NEW
   created_at: string;
 };
 

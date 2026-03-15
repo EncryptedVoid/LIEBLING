@@ -167,9 +167,16 @@ export default function WishlistPage() {
 
   // ── Derived ────────────────────────────────────────────
   const filteredCollections = useMemo(() => {
-    if (!collectionSearch.trim()) return collections;
+    // Sort: Gifted (is_system) first, then alphabetically
+    const sorted = [...collections].sort((a, b) => {
+      if (a.is_system && !b.is_system) return -1;
+      if (!a.is_system && b.is_system) return 1;
+      return a.name.localeCompare(b.name);
+    });
+
+    if (!collectionSearch.trim()) return sorted;
     const q = collectionSearch.toLowerCase();
-    return collections.filter((c) => c.name.toLowerCase().includes(q));
+    return sorted.filter((c) => c.name.toLowerCase().includes(q));
   }, [collections, collectionSearch]);
 
   const filteredItems = useMemo(() => {
