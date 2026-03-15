@@ -6,7 +6,7 @@ export type User = {
   birthday: string | null;
   theme_mode: "light" | "dark";
   theme_color: "zinc" | "rose" | "blue" | "green" | "orange" | "violet";
-  time_format: "12h" | "24h"; // NEW
+  time_format: "12h" | "24h";
   onboarded: boolean;
   created_at: string;
 };
@@ -22,6 +22,7 @@ export type Item = {
   is_claimed: boolean;
   claimed_by: string | null;
   gifted_at: string | null;
+  bought_at: string | null; // NEW: Track when gift was purchased
   created_at: string;
 };
 
@@ -30,7 +31,7 @@ export type Collection = {
   user_id: string;
   name: string;
   emoji: string | null;
-  banner_url: string | null; // NEW
+  banner_url: string | null;
   is_system: boolean;
   created_at: string;
 };
@@ -44,7 +45,7 @@ export type Event = {
   date: string;
   time: string | null;
   location: string | null;
-  banner_url: string | null; // NEW
+  banner_url: string | null;
   created_at: string;
 };
 
@@ -54,4 +55,9 @@ export type Friendship = {
   addressee_id: string;
   status: "pending" | "accepted";
   created_at: string;
+};
+
+// NEW: Type for claimed items with owner info (used in dashboard)
+export type ClaimedItemWithOwner = Item & {
+  owner?: User;
 };

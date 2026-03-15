@@ -2,7 +2,7 @@
 -- 1. TABLES & BASE SCHEMA
 -- ═══════════════════════════════════════════════════════
 
--- USERS: Extends Supabase auth.users
+-- USERS: Extends Supabase auth.users with app preferences
 create table public.users (
   id uuid primary key references auth.users(id) on delete cascade,
   display_name text not null,
@@ -16,7 +16,7 @@ create table public.users (
   created_at timestamptz not null default now()
 );
 
--- COLLECTIONS: Groups of items
+-- COLLECTIONS: Groups of wishlist items
 create table public.collections (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.users(id) on delete cascade,
@@ -27,7 +27,7 @@ create table public.collections (
   created_at timestamptz not null default now()
 );
 
--- ITEMS: Individual wishlist items
+-- ITEMS: Individual wishlist items with claim and purchase tracking
 create table public.items (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.users(id) on delete cascade,
@@ -38,6 +38,7 @@ create table public.items (
   is_claimed boolean not null default false,
   claimed_by uuid references public.users(id) on delete set null,
   gifted_at timestamptz default null,
+  bought_at timestamptz default null,
   created_at timestamptz not null default now()
 );
 
@@ -62,7 +63,7 @@ create table public.events (
   created_at timestamptz not null default now()
 );
 
--- FRIENDSHIPS: Connections between users
+-- FRIENDSHIPS: Two-way connections
 create table public.friendships (
   id uuid primary key default gen_random_uuid(),
   requester_id uuid not null references public.users(id) on delete cascade,
@@ -80,6 +81,7 @@ create table public.friendships (
 create index idx_users_friend_code on public.users(friend_code);
 create index idx_collections_user on public.collections(user_id);
 create index idx_items_user on public.items(user_id);
+create index idx_items_bought_at on public.items(bought_at);
 create index idx_events_user on public.events(user_id);
 create index idx_friendships_requester on public.friendships(requester_id);
 create index idx_friendships_addressee on public.friendships(addressee_id);
@@ -87,13 +89,12 @@ create index idx_item_collections_item on public.item_collections(item_id);
 create index idx_item_collections_collection on public.item_collections(collection_id);
 
 -- ═══════════════════════════════════════════════════════
--- 3. FUNCTIONS & TRIGGERS
+-- 3. CORE FUNCTIONS & TRIGGERS
 -- ═══════════════════════════════════════════════════════
 
--- Helper: Check Friendship
+-- Friend Check Utility
 create or replace function public.are_friends(user_a uuid, user_b uuid)
-returns boolean language sql security definer set search_path = '' stable
-as $$
+returns boolean language sql security definer set search_path = '' stable as $$
   select exists (
     select 1 from public.friendships
     where status = 'accepted'
@@ -101,27 +102,30 @@ as $$
   );
 $$;
 
--- Generator: Friend Code
+-- Friend Code Generator: LIEB-XXXX-XXXX
 create or replace function public.generate_friend_code()
 returns text language plpgsql as $$
 declare
   chars text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  part1 text := '';
+  part2 text := '';
   code text;
 begin
   loop
-    code := 'LIEB-';
+    part1 := ''; part2 := '';
     for i in 1..4 loop
-      code := code || substr(chars, floor(random() * length(chars) + 1)::int, 1);
+      part1 := part1 || substr(chars, floor(random() * length(chars) + 1)::int, 1);
+      part2 := part2 || substr(chars, floor(random() * length(chars) + 1)::int, 1);
     end loop;
+    code := 'LIEB-' || part1 || '-' || part2;
     if not exists (select 1 from public.users where friend_code = code) then return code; end if;
   end loop;
 end;
 $$;
 
--- Trigger: On Signup
+-- Signup Handler
 create or replace function public.handle_new_user()
-returns trigger language plpgsql security definer set search_path = ''
-as $$
+returns trigger language plpgsql security definer set search_path = '' as $$
 begin
   insert into public.users (id, display_name, avatar_url, friend_code)
   values (
@@ -147,21 +151,14 @@ end; $$;
 create trigger trg_prevent_system_collection_delete before delete on collections for each row execute function prevent_system_collection_mutation();
 
 -- ═══════════════════════════════════════════════════════
--- 4. VIEWS
+-- 4. VIEW (The Primary Data Interface)
 -- ═══════════════════════════════════════════════════════
 
 create or replace view public.items_visible
 with (security_invoker = true)
 as
 select
-  i.id,
-  i.user_id,
-  i.name,
-  i.price,
-  i.image_url,
-  i.link,
-  i.gifted_at,
-  i.created_at,
+  i.id, i.user_id, i.name, i.price, i.image_url, i.link, i.gifted_at, i.bought_at, i.created_at,
   case when i.user_id = auth.uid() then false else i.is_claimed end as is_claimed,
   case
     when i.user_id = auth.uid() then null
@@ -174,7 +171,7 @@ left join public.item_collections ic on ic.item_id = i.id
 group by i.id;
 
 -- ═══════════════════════════════════════════════════════
--- 5. ROW LEVEL SECURITY (RLS)
+-- 5. RLS POLICIES
 -- ═══════════════════════════════════════════════════════
 
 alter table public.users enable row level security;
@@ -184,80 +181,67 @@ alter table public.events enable row level security;
 alter table public.friendships enable row level security;
 alter table public.item_collections enable row level security;
 
--- Users Policies
-create policy "Users: anyone can read profiles" on public.users for select using (true);
-create policy "Users: update own profile" on public.users for update using (id = auth.uid());
+-- Condensed Global Policies
+create policy "Profiles: public read, self update" on public.users for select using (true);
+create policy "Profiles: self edit" on public.users for update using (id = auth.uid());
 
--- Items Policies
-create policy "Items: owner can read own" on public.items for select using (user_id = auth.uid());
-create policy "Items: friends can read" on public.items for select using (public.are_friends(auth.uid(), user_id));
-create policy "Items: owner manage all" on public.items for all using (user_id = auth.uid());
+create policy "Items: friend/owner read" on public.items for select using (user_id = auth.uid() or public.are_friends(auth.uid(), user_id));
+create policy "Items: owner manage" on public.items for all using (user_id = auth.uid());
 
--- Collections Policies
+create policy "Collections: access" on public.collections for select using (user_id = auth.uid() or public.are_friends(auth.uid(), user_id));
 create policy "Collections: owner manage" on public.collections for all using (user_id = auth.uid());
-create policy "Collections: friends read" on public.collections for select using (public.are_friends(auth.uid(), user_id));
 
--- Junction Policies
-create policy "ItemCollections: access" on public.item_collections for select using (exists (select 1 from public.items where id = item_id and (user_id = auth.uid() or public.are_friends(auth.uid(), user_id))));
-create policy "ItemCollections: owner manage" on public.item_collections for all using (exists (select 1 from public.items where id = item_id and user_id = auth.uid()));
+create policy "Junction: access" on public.item_collections for select using (exists (select 1 from public.items where id = item_id and (user_id = auth.uid() or public.are_friends(auth.uid(), user_id))));
+create policy "Junction: owner manage" on public.item_collections for all using (exists (select 1 from public.items where id = item_id and user_id = auth.uid()));
 
--- Events Policies
 create policy "Events: owner manage" on public.events for all using (user_id = auth.uid());
-create policy "Events: friends read" on public.events for select using (public.are_friends(auth.uid(), user_id));
+create policy "Events: friend read" on public.events for select using (public.are_friends(auth.uid(), user_id));
 
--- Friendships Policies
-create policy "Friendships: view" on public.friendships for select using (requester_id = auth.uid() or addressee_id = auth.uid());
-create policy "Friendships: insert" on public.friendships for insert with check (requester_id = auth.uid());
-create policy "Friendships: update" on public.friendships for update using (addressee_id = auth.uid()) with check (status = 'accepted');
-create policy "Friendships: delete" on public.friendships for delete using (requester_id = auth.uid() or addressee_id = auth.uid());
-
--- ═══════════════════════════════════════════════════════
--- 6. STORAGE BUCKETS & POLICIES
--- ═══════════════════════════════════════════════════════
-
-insert into storage.buckets (id, name, public)
-values ('avatars', 'avatars', true), ('banners', 'banners', true)
-on conflict (id) do nothing;
-
--- Avatars Policies
-drop policy if exists "Users can upload their own avatar" on storage.objects;
-drop policy if exists "Users can update their own avatar" on storage.objects;
-drop policy if exists "Anyone can read avatars" on storage.objects;
-
-create policy "Users can upload their own avatar" on storage.objects for insert with check (bucket_id = 'avatars' and auth.role() = 'authenticated' and (storage.foldername(name))[1] = auth.uid()::text);
-create policy "Users can update their own avatar" on storage.objects for update using (bucket_id = 'avatars' and auth.role() = 'authenticated' and (storage.foldername(name))[1] = auth.uid()::text);
-create policy "Anyone can read avatars" on storage.objects for select using (bucket_id = 'avatars');
-
--- Banners Policies
-drop policy if exists "Users can upload their own banners" on storage.objects;
-drop policy if exists "Users can update their own banners" on storage.objects;
-drop policy if exists "Users can delete their own banners" on storage.objects;
-drop policy if exists "Anyone can read banners" on storage.objects;
-
-create policy "Users can upload their own banners" on storage.objects for insert with check (bucket_id = 'banners' and auth.role() = 'authenticated' and (storage.foldername(name))[1] = auth.uid()::text);
-create policy "Users can update their own banners" on storage.objects for update using (bucket_id = 'banners' and auth.role() = 'authenticated' and (storage.foldername(name))[1] = auth.uid()::text);
-create policy "Users can delete their own banners" on storage.objects for delete using (bucket_id = 'banners' and auth.role() = 'authenticated' and (storage.foldername(name))[1] = auth.uid()::text);
-create policy "Anyone can read banners" on storage.objects for select using (bucket_id = 'banners');
+create policy "Friendships: access" on public.friendships for select using (requester_id = auth.uid() or addressee_id = auth.uid());
+create policy "Friendships: request" on public.friendships for insert with check (requester_id = auth.uid());
+create policy "Friendships: accept" on public.friendships for update using (addressee_id = auth.uid()) with check (status = 'accepted');
+create policy "Friendships: terminate" on public.friendships for delete using (requester_id = auth.uid() or addressee_id = auth.uid());
 
 -- ═══════════════════════════════════════════════════════
--- 7. APPLICATION LOGIC FUNCTIONS
+-- 6. STORAGE & BUCKETS
 -- ═══════════════════════════════════════════════════════
 
+insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true), ('banners', 'banners', true) on conflict (id) do nothing;
+
+create policy "Storage: owner manage folder" on storage.objects for all using (bucket_id in ('avatars', 'banners') and auth.role() = 'authenticated' and (storage.foldername(name))[1] = auth.uid()::text);
+create policy "Storage: public read" on storage.objects for select using (bucket_id in ('avatars', 'banners'));
+
+-- ═══════════════════════════════════════════════════════
+-- 7. APPLICATION LOGIC (RPC)
+-- ═══════════════════════════════════════════════════════
+
+-- CLAIM LOGIC
 create or replace function public.claim_item(item_id uuid)
 returns void language plpgsql security definer set search_path = '' as $$
 begin
-  update public.items
-  set is_claimed = true, claimed_by = auth.uid()
-  where id = item_id
-    and is_claimed = false
-    and user_id != auth.uid()
-    and public.are_friends(auth.uid(), user_id);
-  if not found then raise exception 'Cannot claim item (already claimed, owner, or not friends).'; end if;
+  update public.items set is_claimed = true, claimed_by = auth.uid()
+  where id = item_id and is_claimed = false and user_id != auth.uid() and public.are_friends(auth.uid(), user_id);
+  if not found then raise exception 'Claim failed: check friendship or claim status.'; end if;
 end; $$;
 
 create or replace function public.unclaim_item(item_id uuid)
 returns void language plpgsql security definer set search_path = '' as $$
 begin
-  update public.items set is_claimed = false, claimed_by = null where id = item_id and claimed_by = auth.uid();
-  if not found then raise exception 'You can only unclaim items you claimed.'; end if;
+  update public.items set is_claimed = false, claimed_by = null, bought_at = null where id = item_id and claimed_by = auth.uid();
+  if not found then raise exception 'Only the claimer can unclaim.'; end if;
+end; $$;
+
+-- PURCHASE LOGIC
+create or replace function public.mark_item_bought(item_id uuid)
+returns void language plpgsql security definer set search_path = '' as $$
+begin
+  update public.items set bought_at = now() where id = item_id and claimed_by = auth.uid() and bought_at is null;
+  if not found then raise exception 'Cannot mark as bought: check claim status.'; end if;
+end; $$;
+
+create or replace function public.unmark_item_bought(item_id uuid)
+returns void language plpgsql security definer set search_path = '' as $$
+begin
+  update public.items set bought_at = null where id = item_id and claimed_by = auth.uid() and bought_at is not null;
+  if not found then raise exception 'Cannot unmark: item not found or not bought.'; end if;
 end; $$;
