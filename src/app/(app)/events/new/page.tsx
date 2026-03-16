@@ -371,7 +371,7 @@ export default function NewEventPage() {
             </div>
 
             {/* Banner Sync Option */}
-            {(collectionId === "new" || (collectionId !== "none" && !useCollectionBanner && hasValidBanner)) && (
+            {/* {(collectionId === "new" || (collectionId !== "none" && !useCollectionBanner && hasValidBanner)) && (
               <div className="bg-muted/50 rounded-lg p-3 flex items-start gap-3">
                 <Link2 className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                 <div className="flex-1">
@@ -393,7 +393,7 @@ export default function NewEventPage() {
                   </p>
                 </div>
               </div>
-            )}
+            )} */}
 
             <Button onClick={handleSave} disabled={saving || !hasValidBanner} className="mt-2 shadow-sm">
               {saving ? "Creating..." : "Create event"}
