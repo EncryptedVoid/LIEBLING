@@ -220,6 +220,7 @@ export default function SettingsPage() {
               </div>
             </div>
 
+
             {/* Time format */}
             <div className="flex flex-col gap-2">
               <Label className="flex items-center gap-1.5">
@@ -231,17 +232,18 @@ export default function SettingsPage() {
                   <button
                     key={fmt}
                     onClick={() => setTimeFormat(fmt)}
-                    className={`flex-1 flex flex-col items-center gap-1 rounded-xl border-2 p-3 transition-all ${
+                    className={`flex-1 flex flex-col items-center gap-1.5 rounded-xl border-2 p-3 transition-all ${
                       timeFormat === fmt
-                        ? "border-primary bg-primary/5 shadow-sm"
-                        : "border-muted hover:border-muted-foreground/20"
+                        ? "border-primary bg-primary/5"
+                        : "border-muted bg-transparent hover:border-muted-foreground/20"
                     }`}
                   >
-                    <span className="text-sm font-mono font-medium">
+                    <span className={`text-sm font-mono font-medium ${
+                      timeFormat === fmt ? "text-primary" : "text-foreground"
+                    }`}>
                       {fmt === "12h" ? "2:30 PM" : "14:30"}
                     </span>
                     <span className="text-[10px] text-muted-foreground">{fmt === "12h" ? "12-hour" : "24-hour"}</span>
-                    {timeFormat === fmt && <Check className="h-3 w-3 text-primary" />}
                   </button>
                 ))}
               </div>
