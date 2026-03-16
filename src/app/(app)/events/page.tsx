@@ -31,6 +31,22 @@ type EventWithMeta = Event & {
 type ViewMode = "timeline" | "by-friend";
 type SortOption = "date-asc" | "date-desc" | "name-asc" | "name-desc";
 
+// Sort labels for upcoming events
+const upcomingSortLabels: Record<SortOption, string> = {
+  "date-asc": "Upcoming First",
+  "date-desc": "Furthest First",
+  "name-asc": "Name A-Z",
+  "name-desc": "Name Z-A",
+};
+
+// Sort labels for past events
+const pastSortLabels: Record<SortOption, string> = {
+  "date-asc": "Oldest First",
+  "date-desc": "Most Recent",
+  "name-asc": "Name A-Z",
+  "name-desc": "Name Z-A",
+};
+
 export default function EventsPage() {
   const supabase = createClient();
   const [currentUserId, setCurrentUserId] = useState("");
@@ -194,24 +210,19 @@ export default function EventsPage() {
     });
   }, [pastEventsByUser]);
 
-  const sortLabels: Record<SortOption, string> = {
-    "date-asc": "Date (soonest)",
-    "date-desc": "Date (latest)",
-    "name-asc": "Name A-Z",
-    "name-desc": "Name Z-A",
-  };
-
   function SearchAndSort({
     search,
     onSearchChange,
     sort,
     onSortChange,
+    sortLabels,
     placeholder = "Search events..."
   }: {
     search: string;
     onSearchChange: (v: string) => void;
     sort: SortOption;
     onSortChange: (v: SortOption) => void;
+    sortLabels: Record<SortOption, string>;
     placeholder?: string;
   }) {
     return (
@@ -496,6 +507,7 @@ export default function EventsPage() {
             onSearchChange={setMyEventsSearch}
             sort={myEventsSort}
             onSortChange={setMyEventsSort}
+            sortLabels={upcomingSortLabels}
             placeholder="Search your events..."
           />
           <EventList
@@ -512,6 +524,7 @@ export default function EventsPage() {
             onSearchChange={setFriendEventsSearch}
             sort={friendEventsSort}
             onSortChange={setFriendEventsSort}
+            sortLabels={upcomingSortLabels}
             placeholder="Search friends' events..."
           />
           <FriendsEventsList />
@@ -523,6 +536,7 @@ export default function EventsPage() {
             onSearchChange={setPastEventsSearch}
             sort={pastEventsSort}
             onSortChange={setPastEventsSort}
+            sortLabels={pastSortLabels}
             placeholder="Search past events..."
           />
           <PastEventsList />
