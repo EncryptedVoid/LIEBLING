@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Check, Plus, ShoppingBag } from "lucide-react";
+import { Check, Plus, ShoppingBag, ChevronDown, ChevronUp, Sparkles, AlertCircle } from "lucide-react";
 
 import {
   Dialog,
@@ -20,6 +20,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { toast } from "sonner";
 
 import type { Collection, Item } from "@/lib/types";
@@ -39,6 +44,8 @@ type ScrapedData = {
   price: string | null;
 };
 
+type ScrapeStatus = "idle" | "scraping" | "success" | "partial" | "failed";
+
 export function AddItemDialog({
   open,
   onOpenChange,
@@ -55,9 +62,14 @@ export function AddItemDialog({
   const [imageUrl, setImageUrl] = useState("");
   const [selectedCollectionIds, setSelectedCollectionIds] = useState<string[]>([]);
 
-  const [scraping, setScraping] = useState(false);
+  const [scrapeStatus, setScrapeStatus] = useState<ScrapeStatus>("idle");
+  const [scrapedFields, setScrapedFields] = useState<{ name: boolean; price: boolean; image: boolean }>({
+    name: false,
+    price: false,
+    image: false,
+  });
+  const [showAllFields, setShowAllFields] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [scraped, setScraped] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Inline new collection
@@ -79,7 +91,9 @@ export function AddItemDialog({
       setPrice(editingItem.price ? String(editingItem.price) : "");
       setImageUrl(editingItem.image_url ?? "");
       setSelectedCollectionIds(editingItem.collection_ids ?? []);
-      setScraped(true);
+      setScrapeStatus("success");
+      setScrapedFields({ name: true, price: true, image: true });
+      setShowAllFields(true); // Show all fields when editing
     } else {
       resetForm();
     }
@@ -88,25 +102,55 @@ export function AddItemDialog({
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     const trimmed = url.trim();
-    if (!trimmed || scraped) return;
+    if (!trimmed || scrapeStatus !== "idle") return;
     try { new URL(trimmed); } catch { return; }
     debounceRef.current = setTimeout(() => handleScrape(trimmed), 600);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [url]);
 
   async function handleScrape(targetUrl: string) {
-    setScraping(true);
+    setScrapeStatus("scraping");
     try {
       const res = await fetch("/api/scrape", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: targetUrl }) });
       if (!res.ok) throw new Error("Scrape failed");
       const data: ScrapedData = await res.json();
+
+      const foundFields = {
+        name: !!data.title,
+        price: !!data.price,
+        image: !!data.image,
+      };
+
       if (data.title) setName(data.title);
       if (data.image) setImageUrl(data.image);
       if (data.price) setPrice(data.price);
-      setScraped(true);
-      toast.success("Got item details from the link.");
-    } catch { toast.error("Couldn't fetch details. Fill them in manually."); }
-    finally { setScraping(false); }
+
+      setScrapedFields(foundFields);
+
+      const allFound = foundFields.name && foundFields.price && foundFields.image;
+      const noneFound = !foundFields.name && !foundFields.price && !foundFields.image;
+
+      if (allFound) {
+        setScrapeStatus("success");
+        toast.success("✨ Got all item details from the link!");
+      } else if (noneFound) {
+        setScrapeStatus("failed");
+        setShowAllFields(true);
+        toast.error("Couldn't fetch details. Fill them in manually.");
+      } else {
+        setScrapeStatus("partial");
+        setShowAllFields(true);
+        const missing = [];
+        if (!foundFields.name) missing.push("name");
+        if (!foundFields.price) missing.push("price");
+        if (!foundFields.image) missing.push("image");
+        toast.info(`Got some details! Please add: ${missing.join(", ")}`);
+      }
+    } catch {
+      setScrapeStatus("failed");
+      setShowAllFields(true);
+      toast.error("Couldn't fetch details. Fill them in manually.");
+    }
   }
 
   function toggleCollection(colId: string) {
@@ -177,10 +221,19 @@ export function AddItemDialog({
   function resetForm() {
     setUrl(""); setName(""); setPrice(""); setImageUrl("");
     setSelectedCollectionIds(defaultCollectionId ? [defaultCollectionId] : []);
-    setScraped(false); setNewColName("");
+    setScrapeStatus("idle");
+    setScrapedFields({ name: false, price: false, image: false });
+    setShowAllFields(false);
+    setNewColName("");
   }
 
   const selectedNames = localCollections.filter((c) => selectedCollectionIds.includes(c.id)).map((c) => c.name);
+
+  // Determine which fields need to be shown
+  const needsManualEntry = scrapeStatus === "partial" || scrapeStatus === "failed" || showAllFields;
+  const showNameField = needsManualEntry && (!scrapedFields.name || showAllFields);
+  const showPriceField = needsManualEntry && (!scrapedFields.price || showAllFields);
+  const showImageField = needsManualEntry && (!scrapedFields.image || showAllFields);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -188,46 +241,55 @@ export function AddItemDialog({
         <DialogHeader>
           <DialogTitle>{isEditing ? "Edit item" : "Add an item"}</DialogTitle>
           <DialogDescription>
-            {isEditing ? "Update the details for this item." : "Paste a link and we'll try to fill in the details."}
+            {isEditing ? "Update the details for this item." : "Paste a link and we'll try to fill in the details automatically."}
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex gap-5 mt-2">
           {/* Left: Fields */}
           <div className="flex-1 flex flex-col gap-3.5 min-w-0">
-            {/* URL */}
+            {/* URL - Always visible */}
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="url">Link</Label>
               <div className="relative">
-                <Input id="url" type="url" placeholder="Paste a product link..." value={url} onChange={(e) => { setUrl(e.target.value); setScraped(false); }} />
-                {scraping && (
+                <Input
+                  id="url"
+                  type="url"
+                  placeholder="Paste a product link..."
+                  value={url}
+                  onChange={(e) => {
+                    setUrl(e.target.value);
+                    setScrapeStatus("idle");
+                    setScrapedFields({ name: false, price: false, image: false });
+                  }}
+                />
+                {scrapeStatus === "scraping" && (
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
                     <div className="h-4 w-4 border-2 border-muted-foreground/30 border-t-foreground rounded-full animate-spin" />
                   </div>
                 )}
               </div>
-              {scraping && <p className="text-[11px] text-muted-foreground">Fetching details...</p>}
+              {scrapeStatus === "scraping" && (
+                <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                  <Sparkles className="h-3 w-3 animate-pulse" />
+                  Fetching details...
+                </p>
+              )}
+              {scrapeStatus === "success" && !showAllFields && (
+                <p className="text-[11px] text-green-600 dark:text-green-400 flex items-center gap-1">
+                  <Check className="h-3 w-3" />
+                  All details found! Ready to add.
+                </p>
+              )}
+              {scrapeStatus === "partial" && (
+                <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  Some details found. Please fill in the rest below.
+                </p>
+              )}
             </div>
 
-            {/* Name */}
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="name">Name</Label>
-              <Input id="name" placeholder="Item name" value={name} onChange={(e) => setName(e.target.value)} />
-            </div>
-
-            {/* Price */}
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="price">Price</Label>
-              <Input id="price" type="number" step="0.01" placeholder="0.00" value={price} onChange={(e) => setPrice(e.target.value)} />
-            </div>
-
-            {/* Image URL */}
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="imageUrl">Image URL</Label>
-              <Input id="imageUrl" type="url" placeholder="https://..." value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} />
-            </div>
-
-            {/* Collections */}
+            {/* Collections - Always visible */}
             <div className="flex flex-col gap-1.5">
               <Label>Collections</Label>
               <Popover>
@@ -256,6 +318,7 @@ export function AddItemDialog({
                           <div className={`flex items-center justify-center h-4 w-4 rounded border transition-colors ${isSelected ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/30"}`}>
                             {isSelected && <Check className="h-3 w-3" />}
                           </div>
+                          {col.emoji && <span>{col.emoji}</span>}
                           {col.name}
                         </button>
                       );
@@ -282,13 +345,73 @@ export function AddItemDialog({
               </Popover>
             </div>
 
-            <Button onClick={handleSave} disabled={saving} className="mt-1">
+            {/* Success state - show toggle to reveal fields */}
+            {scrapeStatus === "success" && !showAllFields && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="justify-start text-muted-foreground"
+                onClick={() => setShowAllFields(true)}
+              >
+                <ChevronDown className="h-3 w-3 mr-1.5" />
+                Show all fields to edit
+              </Button>
+            )}
+
+            {/* Collapsible fields section */}
+            {(needsManualEntry || showAllFields) && (
+              <div className="flex flex-col gap-3.5 animate-in fade-in-50 slide-in-from-top-2 duration-200">
+                {showAllFields && scrapeStatus === "success" && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="justify-start text-muted-foreground"
+                    onClick={() => setShowAllFields(false)}
+                  >
+                    <ChevronUp className="h-3 w-3 mr-1.5" />
+                    Hide fields
+                  </Button>
+                )}
+
+                {/* Name */}
+                {(showNameField || isEditing) && (
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="name">
+                      Name
+                      {!scrapedFields.name && scrapeStatus !== "idle" && (
+                        <Badge variant="outline" className="ml-2 text-[9px]">Required</Badge>
+                      )}
+                    </Label>
+                    <Input id="name" placeholder="Item name" value={name} onChange={(e) => setName(e.target.value)} />
+                  </div>
+                )}
+
+                {/* Price */}
+                {(showPriceField || isEditing) && (
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="price">Price</Label>
+                    <Input id="price" type="number" step="0.01" placeholder="0.00" value={price} onChange={(e) => setPrice(e.target.value)} />
+                  </div>
+                )}
+
+                {/* Image URL */}
+                {(showImageField || isEditing) && (
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="imageUrl">Image URL</Label>
+                    <Input id="imageUrl" type="url" placeholder="https://..." value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} />
+                  </div>
+                )}
+              </div>
+            )}
+
+            <Button onClick={handleSave} disabled={saving || !url.trim() || !name.trim()} className="mt-1">
               {saving ? (isEditing ? "Saving..." : "Adding...") : (isEditing ? "Save changes" : "Add item")}
             </Button>
           </div>
 
-          {/* Right: Preview */}
-          <div className="hidden sm:flex w-48 shrink-0 flex-col items-center justify-center">
+          {/* Right: Preview - Always visible */}
+          <div className="hidden sm:flex w-48 shrink-0 flex-col items-center justify-start">
+            <p className="text-[10px] text-muted-foreground mb-2">Preview</p>
             <div className="w-full rounded-xl ring-1 ring-foreground/5 overflow-hidden bg-card shadow-sm">
               <div className="aspect-square bg-muted/30 flex items-center justify-center overflow-hidden">
                 {imageUrl ? (
@@ -296,7 +419,7 @@ export function AddItemDialog({
                 ) : (
                   <div className="flex flex-col items-center gap-1.5 text-muted-foreground/30">
                     <ShoppingBag className="h-8 w-8" />
-                    <span className="text-[10px]">Preview</span>
+                    <span className="text-[10px]">No image</span>
                   </div>
                 )}
               </div>
@@ -311,7 +434,6 @@ export function AddItemDialog({
                 </p>
               </div>
             </div>
-            <p className="text-[10px] text-muted-foreground mt-2">Card preview</p>
           </div>
         </div>
       </DialogContent>

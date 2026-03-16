@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   Pencil,
@@ -9,6 +9,7 @@ import {
   ShoppingBag,
   Gift,
   Undo2,
+  FolderOpen,
 } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
@@ -27,16 +28,18 @@ import {
 import { toast } from "sonner";
 import { getOrCreateGiftedCollection } from "@/lib/gifted-collection";
 
-import type { Item } from "@/lib/types";
+import type { Item, Collection } from "@/lib/types";
 
 type ItemCardProps =
   | {
       item: Item;
       variant: "owner";
       viewMode?: "grid" | "list";
+      collections?: Collection[];
       onDelete?: (id: string) => void;
       onEdit?: (item: Item) => void;
       onGiftedToggle?: () => void;
+      onMoveGifted?: (item: Item) => void;
     }
   | {
       item: Item;
@@ -46,12 +49,48 @@ type ItemCardProps =
       onClaimChange?: () => void;
     };
 
+// Confetti component for celebration
+function Confetti({ show }: { show: boolean }) {
+  if (!show) return null;
+
+  const colors = ['#f43f5e', '#3b82f6', '#22c55e', '#f97316', '#8b5cf6', '#eab308'];
+  const pieces = Array.from({ length: 50 }, (_, i) => ({
+    id: i,
+    left: Math.random() * 100,
+    delay: Math.random() * 0.5,
+    color: colors[Math.floor(Math.random() * colors.length)],
+    size: Math.random() * 8 + 4,
+  }));
+
+  return (
+    <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+      {pieces.map((piece) => (
+        <div
+          key={piece.id}
+          className="absolute animate-confetti"
+          style={{
+            left: `${piece.left}%`,
+            top: '-20px',
+            animationDelay: `${piece.delay}s`,
+            width: piece.size,
+            height: piece.size,
+            backgroundColor: piece.color,
+            borderRadius: Math.random() > 0.5 ? '50%' : '2px',
+            transform: `rotate(${Math.random() * 360}deg)`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 export function ItemCard(props: ItemCardProps) {
   const { item, variant } = props;
   const viewMode = props.viewMode ?? "grid";
   const supabase = createClient();
   const [loading, setLoading] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
 
   const isGifted = !!item.gifted_at;
 
@@ -87,7 +126,14 @@ export function ItemCard(props: ItemCardProps) {
           .insert({ item_id: item.id, collection_id: giftedColId });
         if (linkErr && !linkErr.message.includes("duplicate")) throw linkErr;
       }
-      toast.success("Marked as received!");
+
+      // Show confetti and celebratory toast
+      setShowConfetti(true);
+      toast.success("🎉 Congrats on receiving this gift! Enjoy!", {
+        duration: 4000,
+      });
+      setTimeout(() => setShowConfetti(false), 3000);
+
       props.onGiftedToggle?.();
     } catch (err: any) {
       toast.error(err.message || "Couldn't mark as gifted.");
@@ -125,6 +171,12 @@ export function ItemCard(props: ItemCardProps) {
       toast.error(err.message || "Couldn't restore item.");
     }
     setLoading(false);
+  }
+
+  function handleMoveClick() {
+    if (variant === "owner" && props.onMoveGifted) {
+      props.onMoveGifted(item);
+    }
   }
 
   async function handleClaim() {
@@ -167,6 +219,7 @@ export function ItemCard(props: ItemCardProps) {
   if (viewMode === "list") {
     return (
       <>
+        <Confetti show={showConfetti} />
         <div
           onClick={openLink}
           className={`group flex items-center gap-3 rounded-xl p-2.5 cursor-pointer ring-1 ring-foreground/5 bg-card hover:shadow-md hover:shadow-primary/5 hover:ring-primary/20 transition-all duration-200 ${
@@ -247,6 +300,17 @@ export function ItemCard(props: ItemCardProps) {
                     <Pencil className="h-4 w-4" />
                   </Button>
                 )}
+                {isGifted && props.onMoveGifted && (
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="h-8 w-8"
+                    onClick={handleMoveClick}
+                    title="Move to collection"
+                  >
+                    <FolderOpen className="h-4 w-4" />
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="icon-sm"
@@ -317,6 +381,7 @@ export function ItemCard(props: ItemCardProps) {
   // ── GRID VIEW ──────────────────────────────────────────
   return (
     <>
+      <Confetti show={showConfetti} />
       <Card
         className={`overflow-hidden group transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-1 hover:ring-primary/20 relative card-gradient-accent ${
           isGifted ? "opacity-60" : ""
@@ -377,6 +442,17 @@ export function ItemCard(props: ItemCardProps) {
                     title="Edit"
                   >
                     <Pencil className="h-4 w-4" />
+                  </Button>
+                )}
+                {isGifted && props.onMoveGifted && (
+                  <Button
+                    variant="secondary"
+                    size="icon-sm"
+                    className="h-8 w-8 bg-background/95 backdrop-blur-sm shadow-md hover:bg-background"
+                    onClick={handleMoveClick}
+                    title="Move to collection"
+                  >
+                    <FolderOpen className="h-4 w-4" />
                   </Button>
                 )}
                 <Button
