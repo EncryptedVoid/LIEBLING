@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { format } from "date-fns";
-import { MapPin, CalendarDays } from "lucide-react";
+import { MapPin, CalendarDays, Link as LinkIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { formatTimeDisplay } from "@/lib/time-format";
 
@@ -95,13 +95,46 @@ export default function EventDetailPage() {
               {event.time && <span>at {formatTimeDisplay(event.time, timeFormat)}</span>}
               {event.location && (
                 <span className="flex items-center gap-1">
-                  <MapPin className="h-3 w-3" />{event.location}
+                  <MapPin className="h-3 w-3" />
+                  {(() => {
+                    try {
+                      const p = JSON.parse(event.location);
+                      return p.name || p.address || event.location;
+                    } catch {
+                      return event.location;
+                    }
+                  })()}
                 </span>
               )}
             </div>
           )}
           {event?.description && (
             <p className="mt-3 text-xs text-muted-foreground max-w-2xl leading-relaxed">{event.description}</p>
+          )}
+          {event?.location && (() => {
+            try {
+              const p = JSON.parse(event.location);
+              if (p.placeId) {
+                return (
+                  <div className="mt-4 rounded-lg overflow-hidden border max-w-md h-[200px]">
+                    <iframe width="100%" height="100%" loading="lazy" src={`https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}&q=place_id:${p.placeId}`} style={{ border: 0 }} />
+                  </div>
+                );
+              }
+            } catch { return null; }
+            return null;
+          })()}
+          {event?.custom_links && event.custom_links.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-4">
+              {event.custom_links.map((link, idx) => (
+                <Button key={idx} variant="outline" size="sm" asChild className="text-xs h-7 rounded-full bg-primary/5 border-primary/20 hover:bg-primary/10 text-primary">
+                  <a href={link.url} target="_blank" rel="noopener noreferrer">
+                    <LinkIcon className="h-3 w-3 mr-1.5" />
+                    {link.label}
+                  </a>
+                </Button>
+              ))}
+            </div>
           )}
         </div>
       </div>

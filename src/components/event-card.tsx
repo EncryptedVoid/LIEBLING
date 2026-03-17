@@ -3,12 +3,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import { format, formatDistanceToNow, isPast } from "date-fns";
-import { MapPin, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { MapPin, MoreHorizontal, Pencil, Trash2, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -41,6 +42,7 @@ export function EventCard({ event, onDelete, onEdit, showOwnerBadge = false }: E
   const supabase = createClient();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteCollectionToo, setDeleteCollectionToo] = useState(false);
 
   const eventDate = new Date(event.date);
   const past = isPast(eventDate);
@@ -48,6 +50,10 @@ export function EventCard({ event, onDelete, onEdit, showOwnerBadge = false }: E
 
   async function handleDelete() {
     setDeleting(true);
+    if (deleteCollectionToo && event.collection_id) {
+      const { error: colErr } = await supabase.from("collections").delete().eq("id", event.collection_id);
+      if (colErr) toast.error("Couldn't delete linked wishlist.");
+    }
     const { error } = await supabase.from("events").delete().eq("id", event.id);
     if (error) { toast.error("Couldn't delete event."); } else { toast.success("Event deleted."); onDelete?.(event.id); }
     setDeleting(false);
@@ -107,10 +113,13 @@ export function EventCard({ event, onDelete, onEdit, showOwnerBadge = false }: E
             {/* Info */}
             <div className="flex-1 min-w-0 flex flex-col">
               <div className="flex items-start justify-between gap-2">
-                <h3 className="font-medium text-sm leading-snug group-hover:text-primary transition-colors line-clamp-2 flex-1">
+                <h3 className="font-semibold text-base leading-snug group-hover:text-primary transition-colors line-clamp-2 flex-1">
                   {showOwnerBadge && event.owner ? `${event.owner.display_name.split(" ")[0]}'s ${event.title}` : event.title}
                 </h3>
                 <div className="flex items-center gap-1 shrink-0">
+                  {event.visibility === "exclusive" && (
+                    <Badge variant="secondary" className="gap-1 bg-muted/80 ml-1 text-[10px]"><Lock className="h-3 w-3" /> Exclusive</Badge>
+                  )}
                   {!past && (
                     <Badge className="text-[10px] shadow-sm whitespace-nowrap">{formatDistanceToNow(eventDate, { addSuffix: true })}</Badge>
                   )}
@@ -124,9 +133,18 @@ export function EventCard({ event, onDelete, onEdit, showOwnerBadge = false }: E
               </p>
 
               {event.location && (
-                <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5 line-clamp-1">
+                <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5 max-w-full">
                   <MapPin className="h-2.5 w-2.5 shrink-0" />
-                  <span className="truncate">{event.location}</span>
+                  <span className="truncate">
+                    {(() => {
+                      try {
+                        const parsed = JSON.parse(event.location);
+                        return parsed.name || parsed.address || event.location;
+                      } catch {
+                        return event.location;
+                      }
+                    })()}
+                  </span>
                 </p>
               )}
 
@@ -179,7 +197,26 @@ export function EventCard({ event, onDelete, onEdit, showOwnerBadge = false }: E
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete &quot;{event.title}&quot;?</AlertDialogTitle>
-            <AlertDialogDescription>Items in the linked collection won&apos;t be affected.</AlertDialogDescription>
+            <AlertDialogDescription asChild>
+              <div className="flex flex-col gap-4 mt-2">
+                <p>This action cannot be undone.</p>
+                {event.collection_id && event.collection_name && (
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="deleteCollection"
+                      checked={deleteCollectionToo}
+                      onCheckedChange={(c: boolean | string) => setDeleteCollectionToo(c === true)}
+                    />
+                    <label
+                      htmlFor="deleteCollection"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      Also delete linked wishlist &quot;{event.collection_name}&quot;
+                    </label>
+                  </div>
+                )}
+              </div>
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>

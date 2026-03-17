@@ -13,7 +13,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { FriendRequestsDropdown } from "@/components/friend-requests-dropdown";
 
 type NavProps = {
   user: {
@@ -27,6 +26,7 @@ const navLinks = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/wishlist", label: "Wishlists" },
   { href: "/events", label: "Events" },
+  { href: "/friends", label: "Friends" },
 ];
 
 export function Nav({ user }: NavProps) {
@@ -82,9 +82,8 @@ export function Nav({ user }: NavProps) {
         })}
       </div>
 
-      {/* Right: friend requests + user menu */}
+      {/* Right: user menu */}
       <div className="flex items-center gap-1">
-        <FriendRequestsDropdown userId={user.id} />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

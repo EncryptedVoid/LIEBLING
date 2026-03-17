@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
 import { BirthdayCountdownSection } from "@/components/birthday-countdown-section";
 import { GiftToBuyCard } from "@/components/gift-to-buy-card";
+import { GiftsToBuyModal } from "@/components/gifts-to-buy-modal";
 import { toast } from "sonner";
 
 import type { User, Item, Event } from "@/lib/types";
@@ -34,6 +35,8 @@ export default function DashboardPage() {
   const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>([]);
   const [claimedItems, setClaimedItems] = useState<ClaimedItem[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [giftsModalOpen, setGiftsModalOpen] = useState(false);
 
   useEffect(() => {
     fetchDashboard();
@@ -159,25 +162,24 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Birthday Countdowns - Now includes friends */}
-      <BirthdayCountdownSection currentUser={user} friends={friends} />
+      {/* 3-column layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 min-h-[400px]">
+        {/* Birthday Countdowns */}
+        <div className="flex flex-col">
+          <BirthdayCountdownSection currentUser={user} friends={friends} />
+        </div>
 
-      {/* Two-column layout: Events + Gifts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1 min-h-0">
         {/* Upcoming Events */}
-        <Card className="shadow-sm flex flex-col min-h-[280px] max-h-[400px]">
+        <Card className="shadow-sm flex flex-col h-[400px]">
           <CardHeader className="pb-2 shrink-0">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <CalendarDays className="h-4 w-4" />
                 Upcoming Events ({upcomingEvents.length})
               </CardTitle>
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/events">View all</Link>
-              </Button>
             </div>
           </CardHeader>
-          <CardContent className="flex-1 overflow-hidden">
+          <CardContent className="flex-1 overflow-hidden flex flex-col pt-2">
             {upcomingEvents.length === 0 ? (
               <EmptyState
                 variant="events"
@@ -190,9 +192,15 @@ export default function DashboardPage() {
                 </Button>
               </EmptyState>
             ) : (
-              <div className="overflow-y-auto h-full pr-1 scrollbar-thin">
+              <div 
+                className="overflow-hidden flex-1 relative"
+                style={{
+                  maskImage: upcomingEvents.length > 3 ? 'linear-gradient(to bottom, black 50%, transparent 100%)' : 'none',
+                  WebkitMaskImage: upcomingEvents.length > 3 ? 'linear-gradient(to bottom, black 50%, transparent 100%)' : 'none'
+                }}
+              >
                 <div className="space-y-2">
-                  {upcomingEvents.map((event) => (
+                  {upcomingEvents.slice(0, 3).map((event) => (
                     <Link
                       key={event.id}
                       href={`/events/${event.id}`}
@@ -229,14 +237,22 @@ export default function DashboardPage() {
                       </Badge>
                     </Link>
                   ))}
+                  
+                  {/* Padding to push down content so mask doesn't hide last item fully */}
+                  {upcomingEvents.length > 3 && <div className="h-8" />}
                 </div>
               </div>
+            )}
+            {upcomingEvents.length > 0 && (
+              <Button variant="outline" className="w-full mt-4 shrink-0 transition-transform active:scale-95 shadow-sm" asChild>
+                <Link href="/events?tab=friends&sort=date-asc">View all events</Link>
+              </Button>
             )}
           </CardContent>
         </Card>
 
-        {/* Gifts to Buy - Updated with new cards */}
-        <Card className="shadow-sm flex flex-col min-h-[280px] max-h-[500px]">
+        {/* Gifts to Buy */}
+        <Card className="shadow-sm flex flex-col h-[400px]">
           <CardHeader className="pb-2 shrink-0">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <Gift className="h-4 w-4" />
@@ -253,7 +269,7 @@ export default function DashboardPage() {
               )}
             </CardTitle>
           </CardHeader>
-          <CardContent className="flex-1 overflow-hidden">
+          <CardContent className="flex-1 overflow-hidden flex flex-col pt-2">
             {sortedClaimedItems.length === 0 ? (
               <EmptyState
                 variant="gifts"
@@ -266,21 +282,45 @@ export default function DashboardPage() {
                 </Button>
               </EmptyState>
             ) : (
-              <div className="overflow-y-auto h-full pr-1 scrollbar-thin">
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {sortedClaimedItems.map((item) => (
-                    <GiftToBuyCard
-                      key={item.id}
-                      item={item}
-                      onUpdate={fetchDashboard}
-                    />
-                  ))}
+              <>
+                <div 
+                  className="flex-1 overflow-hidden relative"
+                  style={{
+                    maskImage: sortedClaimedItems.length > 3 ? 'linear-gradient(to bottom, black 55%, transparent 100%)' : 'none',
+                    WebkitMaskImage: sortedClaimedItems.length > 3 ? 'linear-gradient(to bottom, black 55%, transparent 100%)' : 'none'
+                  }}
+                >
+                  <div className="grid grid-cols-1 gap-2 pb-6">
+                    {sortedClaimedItems.slice(0, 3).map((item) => (
+                      <GiftToBuyCard
+                        key={item.id}
+                        item={item}
+                        onUpdate={fetchDashboard}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
+                {sortedClaimedItems.length > 0 && (
+                  <Button 
+                    variant="outline" 
+                    className="w-full mt-4 shrink-0 transition-transform active:scale-95 shadow-sm"
+                    onClick={() => setGiftsModalOpen(true)}
+                  >
+                    View all items to buy
+                  </Button>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
       </div>
+
+      <GiftsToBuyModal 
+        isOpen={giftsModalOpen} 
+        onClose={() => setGiftsModalOpen(false)} 
+        items={sortedClaimedItems} 
+        onUpdate={fetchDashboard} 
+      />
     </div>
   );
 }

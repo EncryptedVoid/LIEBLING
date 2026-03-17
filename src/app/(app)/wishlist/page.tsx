@@ -12,6 +12,7 @@ import {
   Sparkles,
   LayoutGrid,
   List,
+  Lock,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,6 +51,7 @@ import { TemplatePicker } from "@/components/template-picker";
 import { NewCollectionDialog } from "@/components/add-collection-dialog";
 import { EmojiPicker } from "@/components/emoji-picker";
 import { BannerUpload } from "@/components/banner-upload";
+import { PrivacySelector } from "@/components/privacy-selector";
 import { THEME_CSS } from "@/lib/theme-colors";
 import { toast } from "sonner";
 
@@ -85,6 +88,8 @@ export default function WishlistPage() {
   const [editCollectionName, setEditCollectionName] = useState("");
   const [editCollectionEmoji, setEditCollectionEmoji] = useState<string | null>(null);
   const [editCollectionBanner, setEditCollectionBanner] = useState<string | null>(null);
+  const [editCollectionVisibility, setEditCollectionVisibility] = useState<"public" | "exclusive">("public");
+  const [editCollectionAllowedUsers, setEditCollectionAllowedUsers] = useState<string[]>([]);
   const [savingEditCollection, setSavingEditCollection] = useState(false);
 
   const [deleteCollectionOpen, setDeleteCollectionOpen] = useState(false);
@@ -263,6 +268,8 @@ export default function WishlistPage() {
     setEditCollectionName(col.name);
     setEditCollectionEmoji(col.emoji ?? null);
     setEditCollectionBanner(col.banner_url ?? null);
+    setEditCollectionVisibility(col.visibility ?? "public");
+    setEditCollectionAllowedUsers(col.allowed_users ?? []);
     setEditCollectionOpen(true);
   }
 
@@ -274,6 +281,8 @@ export default function WishlistPage() {
       .update({
         name: editCollectionName.trim(),
         emoji: editCollectionEmoji,
+        visibility: editCollectionVisibility,
+        allowed_users: editCollectionVisibility === "exclusive" ? editCollectionAllowedUsers : [],
       })
       .eq("id", editingCollection.id);
     if (error) {
@@ -341,12 +350,19 @@ export default function WishlistPage() {
     <div className="page-enter flex h-[calc(100vh-4rem)]">
       {/* Profile Sidebar - Left Side */}
       {currentUser && (
-        <aside className="w-20 shrink-0 border-r bg-muted/20 hidden md:block">
+        <aside className="w-20 shrink-0 hidden md:block">
           <ProfileSidebar
             currentUser={currentUser}
             friends={friends}
             activeUserId={activeUserId}
-            onSelect={(id) => setActiveUserId(id)}
+            onSelect={(id) => {
+              setActiveUserId(id);
+              if (id === currentUser.id) toast("Viewing your wishlist");
+              else {
+                const f = friends.find(x => x.id === id);
+                if (f) toast(`Viewing ${f.display_name}'s wishlist`);
+              }
+            }}
           />
         </aside>
       )}
@@ -504,6 +520,15 @@ export default function WishlistPage() {
                 className="w-full h-full object-cover"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/20 to-transparent" />
+              
+              <div className="absolute top-3 right-4 flex items-center gap-2">
+                {activeCollection.visibility === "exclusive" && (
+                  <Badge variant="secondary" className="bg-background/80 text-foreground backdrop-blur-sm shadow-sm gap-1.5 border-border/50 font-medium tracking-tight">
+                    <Lock className="h-3 w-3" /> Exclusive
+                  </Badge>
+                )}
+              </div>
+
               <div className="absolute bottom-3 left-4 flex items-center gap-2">
                 {activeCollection.emoji && (
                   <span className="text-2xl">{activeCollection.emoji}</span>
@@ -519,7 +544,14 @@ export default function WishlistPage() {
           <div className="flex items-center justify-between gap-4 shrink-0">
             <div>
               {!activeCollection?.banner_url && !linkedEvent && (
-                <h1 className="text-xl font-semibold tracking-tight">{activeLabel}</h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-xl font-semibold tracking-tight">{activeLabel}</h1>
+                  {activeCollection?.visibility === "exclusive" && (
+                    <Badge variant="secondary" className="gap-1 bg-muted/80 ml-2">
+                      <Lock className="h-3 w-3" /> Exclusive
+                    </Badge>
+                  )}
+                </div>
               )}
               <p className="text-muted-foreground mt-0.5 text-xs">
                 {filteredItems.length} {filteredItems.length === 1 ? "item" : "items"}
@@ -666,11 +698,17 @@ export default function WishlistPage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
-              <DropdownMenuItem onClick={() => setActiveUserId(currentUser.id)}>
+              <DropdownMenuItem onClick={() => {
+                setActiveUserId(currentUser.id);
+                toast("Viewing your wishlist");
+              }}>
                 Your Wishlist
               </DropdownMenuItem>
               {friends.map((friend) => (
-                <DropdownMenuItem key={friend.id} onClick={() => setActiveUserId(friend.id)}>
+                <DropdownMenuItem key={friend.id} onClick={() => {
+                  setActiveUserId(friend.id);
+                  toast(`Viewing ${friend.display_name}'s wishlist`);
+                }}>
                   {friend.display_name}
                 </DropdownMenuItem>
               ))}
@@ -742,6 +780,15 @@ export default function WishlistPage() {
                 />
               </div>
             </div>
+
+            <PrivacySelector
+              visibility={editCollectionVisibility}
+              setVisibility={setEditCollectionVisibility}
+              allowedUsers={editCollectionAllowedUsers}
+              setAllowedUsers={setEditCollectionAllowedUsers}
+              friends={friends}
+            />
+
             <Button
               onClick={handleSaveEditCollection}
               disabled={savingEditCollection || !editCollectionName.trim()}

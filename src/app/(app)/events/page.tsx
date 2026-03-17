@@ -68,10 +68,25 @@ export default function EventsPage() {
   const [friendEventsSort, setFriendEventsSort] = useState<SortOption>("date-asc");
   const [pastEventsSort, setPastEventsSort] = useState<SortOption>("date-desc");
 
+  // Tab state
+  const [activeTab, setActiveTab] = useState("mine");
+
   // View mode for friends' events
   const [friendViewMode, setFriendViewMode] = useState<ViewMode>("timeline");
   // View mode for past events
   const [pastViewMode, setPastViewMode] = useState<ViewMode>("timeline");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const t = params.get("tab");
+    if (t) setActiveTab(t);
+    
+    // Check for friend sort explicitly
+    const s = params.get("sort");
+    if (t === "friends" && s) {
+      setFriendEventsSort(s as SortOption);
+    }
+  }, []);
 
   async function fetchData() {
     setLoading(true);
@@ -494,7 +509,7 @@ export default function EventsPage() {
         </Button>
       </div>
 
-      <Tabs defaultValue="mine" className="mt-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
         <TabsList>
           <TabsTrigger value="mine">My Events ({events.filter(e => !isPast(new Date(e.date))).length})</TabsTrigger>
           <TabsTrigger value="friends">Friends&apos; Events ({friendEvents.filter(e => !isPast(new Date(e.date))).length})</TabsTrigger>

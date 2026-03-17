@@ -43,9 +43,11 @@ import {
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { EmojiPicker } from "@/components/emoji-picker";
 import { TimeInput } from "@/components/ui/time-input";
+import { ImageCropperDialog } from "@/components/image-cropper-dialog";
+import { PrivacySelector } from "@/components/privacy-selector";
 import { toast } from "sonner";
 
-import type { Event } from "@/lib/types";
+import type { Event, User } from "@/lib/types";
 
 type NewCollectionDialogProps = {
   open: boolean;
@@ -67,10 +69,18 @@ export function NewCollectionDialog({
   // Step 1: Collection basics
   const [name, setName] = useState("");
   const [emoji, setEmoji] = useState<string>("🎁");
+  const [description, setDescription] = useState("");
   const [bannerUrl, setBannerUrl] = useState<string | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [visibility, setVisibility] = useState<"public" | "exclusive">("public");
+  const [allowedUsers, setAllowedUsers] = useState<string[]>([]);
+  const [friends, setFriends] = useState<User[]>([]);
+
+  // Cropper states
+  const [cropperOpen, setCropperOpen] = useState(false);
+  const [rawImageSrc, setRawImageSrc] = useState<string | null>(null);
 
   // Step 2: Event linking
   const [linkToEvent, setLinkToEvent] = useState(false);
@@ -88,6 +98,29 @@ export function NewCollectionDialog({
   const [timeFormat, setTimeFormat] = useState<"12h" | "24h">("12h");
 
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    async function fetchFriends() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      const { data: friendships } = await supabase
+        .from("friendships")
+        .select("requester_id, addressee_id")
+        .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
+        .eq("status", "accepted");
+        
+      if (friendships && friendships.length > 0) {
+        const friendIds = friendships.map((f) =>
+          f.requester_id === user.id ? f.addressee_id : f.requester_id
+        );
+        const { data: friendProfiles } = await supabase.from("users").select("*").in("id", friendIds);
+        setFriends(friendProfiles as User[] ?? []);
+      }
+    }
+    fetchFriends();
+  }, [open]);
 
   // Fetch user's events that don't have a collection linked
   useEffect(() => {
@@ -154,8 +187,18 @@ export function NewCollectionDialog({
     }
 
     const objectUrl = URL.createObjectURL(file);
-    setBannerPreview(objectUrl);
+    setRawImageSrc(objectUrl);
+    setCropperOpen(true);
+    
+    // Clear input so selecting same file triggers onChange again
+    if (fileRef.current) {
+      fileRef.current.value = "";
+    }
+  }
+
+  function handleCropComplete(file: File, url: string) {
     setBannerFile(file);
+    setBannerPreview(url);
   }
 
   function removeBanner() {
@@ -213,6 +256,9 @@ export function NewCollectionDialog({
           user_id: user.id,
           name: name.trim(),
           emoji: emoji,
+          description: description.trim() || null,
+          visibility: visibility,
+          allowed_users: visibility === "exclusive" ? allowedUsers : [],
         })
         .select("id")
         .single();
@@ -277,6 +323,9 @@ export function NewCollectionDialog({
     setStep(1);
     setName("");
     setEmoji("🎁");
+    setDescription("");
+    setVisibility("public");
+    setAllowedUsers([]);
     setBannerUrl(null);
     setBannerPreview(null);
     setBannerFile(null);
@@ -398,6 +447,21 @@ export function NewCollectionDialog({
                   className="flex-1"
                 />
               </div>
+            </div>
+
+            {/* Description */}
+            <div className="flex flex-col gap-1.5 mt-2">
+              <Label>Description</Label>
+              <Textarea
+                placeholder="Give your collection a description..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+                className="resize-none"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Tip: Describe the items in the collection, the event theme, or types of items you like if friends want to get something else!
+              </p>
             </div>
 
             {/* Navigation */}
@@ -610,6 +674,14 @@ export function NewCollectionDialog({
           </div>
         )}
       </DialogContent>
+
+      <ImageCropperDialog
+        open={cropperOpen}
+        onOpenChange={setCropperOpen}
+        imageSrc={rawImageSrc}
+        onCropComplete={handleCropComplete}
+        aspectRatio={16 / 9}
+      />
     </Dialog>
   );
 }
