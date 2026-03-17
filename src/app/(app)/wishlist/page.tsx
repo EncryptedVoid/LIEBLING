@@ -13,6 +13,7 @@ import {
   LayoutGrid,
   List,
   Lock,
+  Layers,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ItemGrid } from "@/components/item-grid";
 import { AddItemDialog } from "@/components/add-item-dialog";
+import { MassAddItemDialog } from "@/components/mass-add-item-dialog";
 import { ProfileSidebar } from "@/components/profile-sidebar";
 import { CollectionEventBanner } from "@/components/collection-event-banner";
 import { TemplatePicker } from "@/components/template-picker";
@@ -79,6 +81,7 @@ export default function WishlistPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
 
   const [addItemOpen, setAddItemOpen] = useState(false);
+  const [massAddOpen, setMassAddOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
 
   const [addCollectionOpen, setAddCollectionOpen] = useState(false);
@@ -412,11 +415,12 @@ export default function WishlistPage() {
           <nav className="flex flex-col gap-0.5 overflow-y-auto scrollbar-thin flex-1">
             <button
               onClick={() => setActiveCollectionId(null)}
-              className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs transition-all text-left ${
+              className={`flex items-center justify-between rounded-xl px-3 py-2 text-xs transition-all duration-300 text-left ${
                 activeCollectionId === null
-                  ? "bg-primary text-primary-foreground font-medium shadow-sm"
+                  ? "text-primary-foreground font-medium shadow-lg"
                   : "hover:bg-muted/80"
               }`}
+              style={activeCollectionId === null ? { background: 'linear-gradient(135deg, var(--gradient-from), var(--gradient-to))', boxShadow: '0 4px 12px var(--glow)' } : {}}
             >
               <span>All items</span>
               <span
@@ -433,11 +437,12 @@ export default function WishlistPage() {
             {filteredCollections.map((col) => (
               <div
                 key={col.id}
-                className={`group flex items-center rounded-lg transition-all ${
-                  activeCollectionId === col.id
-                    ? "bg-primary text-primary-foreground font-medium shadow-sm"
-                    : "hover:bg-muted/80"
-                }`}
+                className={`group flex items-center rounded-xl transition-all duration-300 ${
+                activeCollectionId === col.id
+                  ? "text-primary-foreground font-medium shadow-lg"
+                  : "hover:bg-muted/80"
+              }`}
+              style={activeCollectionId === col.id ? { background: 'linear-gradient(135deg, var(--gradient-from), var(--gradient-to))', boxShadow: '0 4px 12px var(--glow)' } : {}}
               >
                 <button
                   onClick={() => setActiveCollectionId(col.id)}
@@ -545,7 +550,7 @@ export default function WishlistPage() {
             <div>
               {!activeCollection?.banner_url && !linkedEvent && (
                 <div className="flex items-center gap-2">
-                  <h1 className="text-xl font-semibold tracking-tight">{activeLabel}</h1>
+                  <h1 className="text-xl font-heading font-semibold tracking-tight">{activeLabel}</h1>
                   {activeCollection?.visibility === "exclusive" && (
                     <Badge variant="secondary" className="gap-1 bg-muted/80 ml-2">
                       <Lock className="h-3 w-3" /> Exclusive
@@ -558,16 +563,26 @@ export default function WishlistPage() {
               </p>
             </div>
             {isOwnWishlist && (
-              <Button
-                onClick={() => {
-                  setEditingItem(null);
-                  setAddItemOpen(true);
-                }}
-                className="shadow-sm"
-              >
-                <Plus className="h-3.5 w-3.5 mr-1.5" />
-                Add item
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setMassAddOpen(true)}
+                  className="shadow-sm border-dashed"
+                >
+                  <Layers className="h-3.5 w-3.5 mr-1.5" />
+                  Mass Add
+                </Button>
+                <Button
+                  onClick={() => {
+                    setEditingItem(null);
+                    setAddItemOpen(true);
+                  }}
+                  className="shadow-sm btn-gradient"
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1.5" />
+                  Add item
+                </Button>
+              </div>
             )}
           </div>
 
@@ -728,6 +743,14 @@ export default function WishlistPage() {
         defaultCollectionId={activeCollectionId ?? undefined}
         onItemAdded={() => fetchData(activeUserId)}
         editingItem={editingItem}
+      />
+
+      <MassAddItemDialog
+        open={massAddOpen}
+        onOpenChange={setMassAddOpen}
+        collections={collections}
+        defaultCollectionId={activeCollectionId ?? undefined}
+        onItemsAdded={() => fetchData(activeUserId)}
       />
 
       <NewCollectionDialog

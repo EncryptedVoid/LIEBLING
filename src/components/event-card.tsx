@@ -70,7 +70,7 @@ export function EventCard({ event, onDelete, onEdit, showOwnerBadge = false }: E
 
   return (
     <>
-      <Card className="overflow-hidden group transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-0.5 card-gradient-accent relative h-full flex flex-col">
+      <Card className="overflow-hidden group transition-all duration-400 glass-card gradient-border-card rounded-2xl relative h-full flex flex-col hover:-translate-y-1">
         {/* Banner image */}
         {event.banner_url && (
           <div className="h-20 overflow-hidden shrink-0">
@@ -84,7 +84,7 @@ export function EventCard({ event, onDelete, onEdit, showOwnerBadge = false }: E
 
         {/* Color accent bar (only if no banner) */}
         {!event.banner_url && (
-          <div className={`h-1 shrink-0 ${past ? "bg-muted-foreground/20" : "bg-gradient-to-r from-primary/60 via-primary/20 to-transparent"}`} />
+          <div className="h-1.5 shrink-0" style={{ background: past ? 'var(--muted)' : 'linear-gradient(90deg, var(--gradient-from), var(--gradient-to), var(--gradient-accent))' }} />
         )}
 
         {/* Owner badge (for timeline view) */}
@@ -103,9 +103,9 @@ export function EventCard({ event, onDelete, onEdit, showOwnerBadge = false }: E
         <Link href={`/events/${event.id}`} className="flex-1 flex flex-col">
           <CardContent className="p-4 flex gap-3 flex-1">
             {/* Date block */}
-            <div className={`h-14 w-14 rounded-xl flex flex-col items-center justify-center shrink-0 transition-colors shadow-inner ${
-              past ? "bg-muted text-muted-foreground" : "bg-gradient-to-br from-primary/15 to-primary/5 text-primary group-hover:from-primary/20 group-hover:to-primary/10"
-            }`}>
+            <div className={`h-14 w-14 rounded-2xl flex flex-col items-center justify-center shrink-0 transition-all duration-300 group-hover:scale-105 ${
+              past ? "bg-muted text-muted-foreground" : ""
+            }`} style={past ? {} : { background: 'linear-gradient(135deg, var(--gradient-from), var(--gradient-to))', color: 'var(--primary-foreground)', boxShadow: '0 4px 12px var(--glow)' }}>
               <span className="text-[10px] font-medium uppercase leading-none">{format(eventDate, "MMM")}</span>
               <span className="text-lg font-bold leading-tight">{format(eventDate, "d")}</span>
             </div>
@@ -113,7 +113,7 @@ export function EventCard({ event, onDelete, onEdit, showOwnerBadge = false }: E
             {/* Info */}
             <div className="flex-1 min-w-0 flex flex-col">
               <div className="flex items-start justify-between gap-2">
-                <h3 className="font-semibold text-base leading-snug group-hover:text-primary transition-colors line-clamp-2 flex-1">
+                <h3 className="font-heading font-semibold text-base leading-snug group-hover:text-primary transition-colors line-clamp-2 flex-1">
                   {showOwnerBadge && event.owner ? `${event.owner.display_name.split(" ")[0]}'s ${event.title}` : event.title}
                 </h3>
                 <div className="flex items-center gap-1 shrink-0">

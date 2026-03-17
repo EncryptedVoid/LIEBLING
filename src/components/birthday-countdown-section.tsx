@@ -144,12 +144,14 @@ export function BirthdayCountdownSection({
   };
 
   return (
-    <Card className="shadow-sm flex flex-col h-[400px]">
-      <CardHeader className="pb-2 shrink-0 border-b">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <Cake className="h-4 w-4" />
-            Countdowns
+    <Card className="glass-card gradient-border-card flex flex-col min-h-[400px] h-full rounded-2xl overflow-hidden">
+      <CardHeader className="pb-3 shrink-0 border-b border-border/40">
+        <div className="flex items-center gap-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <div className="p-1.5 rounded-lg" style={{ background: 'linear-gradient(135deg, var(--gradient-accent), var(--gradient-from))' }}>
+                <Cake className="h-3.5 w-3.5 text-primary-foreground" />
+              </div>
+              Countdowns
           </CardTitle>
           <div className="flex gap-1">
             <Button variant="outline" size="icon-xs" onClick={handlePrev} className="h-6 w-6">
@@ -162,13 +164,13 @@ export function BirthdayCountdownSection({
         </div>
       </CardHeader>
       
-      <CardContent className="flex-1 p-0 relative overflow-hidden flex items-center justify-center bg-muted/10">
+      <CardContent className="flex-1 p-0 relative overflow-hidden flex items-center justify-center bg-muted/5 min-h-[340px]">
         <div 
           className="flex transition-transform duration-300 ease-in-out h-full w-full"
           style={{ transform: `translateX(-${currentIndex * 100}%)` }}
         >
           {upcomingBirthdays.map((birthday) => (
-            <div key={birthday.id} className="min-w-full h-full flex items-center justify-center p-6">
+            <div key={birthday.id} className="min-w-full h-full flex items-center justify-center p-4 sm:p-6 overflow-y-auto overflow-x-hidden scrollbar-thin">
               <CountdownCard birthday={birthday} />
             </div>
           ))}
@@ -223,45 +225,48 @@ function CountdownCard({ birthday }: { birthday: UpcomingBirthday }) {
   const days = birthday.daysAway;
 
   return (
-    <div className={`w-full max-w-sm rounded-2xl p-6 shadow-sm border text-center transition-all ${
-      isSelf ? "bg-gradient-to-br from-pink-50 to-rose-50 border-pink-100 dark:from-pink-950/20 dark:to-rose-950/20 dark:border-pink-900/30" : 
-      isCustomEvent ? "bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100 dark:from-blue-950/20 dark:to-indigo-950/20 dark:border-blue-900/30" :
-      "bg-card"
-    }`}>
+    <div className="w-full max-w-sm rounded-2xl p-6 text-center transition-all glass-card gradient-border-card hover:-translate-y-1 my-auto">
       {birthday.user && !isCustomEvent && (
-        <Avatar className="h-20 w-20 mx-auto mb-4 border-4 border-background shadow-md">
-          <AvatarImage src={birthday.user.avatar_url ?? undefined} />
-          <AvatarFallback className="text-xl">
-            {birthday.user.display_name[0]?.toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
-      )}
-
-      {isCustomEvent && (
-        <div className="h-20 w-20 mx-auto mb-4 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center border-4 border-background shadow-md">
-          <Calendar className="h-8 w-8 text-blue-500" />
+        <div className="relative mx-auto mb-4 w-fit">
+          <div className="absolute -inset-1 rounded-full animate-glow-pulse opacity-50" style={{ background: 'linear-gradient(135deg, var(--gradient-from), var(--gradient-to), var(--gradient-accent))' }} />
+          <Avatar className="h-20 w-20 relative border-4 border-background shadow-lg">
+            <AvatarImage src={birthday.user.avatar_url ?? undefined} />
+            <AvatarFallback className="text-xl font-heading font-bold" style={{ background: 'linear-gradient(135deg, var(--gradient-from), var(--gradient-to))', color: 'white' }}>
+              {birthday.user.display_name[0]?.toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
         </div>
       )}
 
-      <h2 className="text-2xl font-bold mb-1 tracking-tight">
+      {isCustomEvent && (
+        <div className="relative mx-auto mb-4 w-fit">
+          <div className="absolute -inset-1 rounded-full animate-glow-pulse opacity-40" style={{ background: 'linear-gradient(135deg, var(--gradient-from), var(--gradient-to))' }} />
+          <div className="relative h-20 w-20 rounded-full flex items-center justify-center border-4 border-background shadow-lg" style={{ background: 'linear-gradient(135deg, var(--gradient-from), var(--gradient-to))' }}>
+            <Calendar className="h-8 w-8 text-white" />
+          </div>
+        </div>
+      )}
+
+      <h2 className="text-xl font-heading font-bold mb-1 tracking-tight">
         {isCustomEvent ? birthday.title : isSelf ? "Your Birthday" : `${birthday.user?.display_name}'s Birthday`}
       </h2>
       
-      <p className="text-sm text-muted-foreground mb-6 font-medium">
+      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium mb-5" style={{ background: 'var(--glass)', border: '1px solid var(--glass-border)' }}>
+        <Calendar className="h-3 w-3" />
         {format(birthday.nextBirthday, "MMMM do, yyyy")}
         {!isCustomEvent && birthday.age && ` • Turning ${birthday.age}`}
-      </p>
+      </div>
 
       <div className="flex flex-col items-center justify-center">
         {birthday.isToday ? (
           <div className="animate-bounce flex flex-col items-center">
-            <PartyPopper className="h-10 w-10 text-pink-500 mb-2" />
-            <span className="text-xl font-bold text-pink-600 dark:text-pink-400">It's Today!</span>
+            <PartyPopper className="h-10 w-10 mb-2 gradient-text" style={{ color: 'var(--gradient-from)' }} />
+            <span className="text-xl font-heading font-bold gradient-text">It's Today! 🎉</span>
           </div>
         ) : (
           <div className="flex items-baseline gap-2">
-            <span className="text-6xl font-extrabold tracking-tighter text-primary drop-shadow-sm">{days}</span>
-            <span className="text-xl font-semibold text-muted-foreground">days</span>
+            <span className="text-6xl font-heading font-extrabold tracking-tighter gradient-text-animated drop-shadow-sm">{days}</span>
+            <span className="text-lg font-semibold text-muted-foreground">days away</span>
           </div>
         )}
       </div>

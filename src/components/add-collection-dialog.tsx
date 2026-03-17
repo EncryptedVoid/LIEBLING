@@ -343,10 +343,12 @@ export function NewCollectionDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) resetForm(); }}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg glass-card rounded-2xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-primary" />
+          <DialogTitle className="flex items-center gap-2 font-heading">
+            <div className="p-1.5 rounded-lg" style={{ background: 'linear-gradient(135deg, var(--gradient-from), var(--gradient-to))' }}>
+              <Sparkles className="h-3.5 w-3.5 text-primary-foreground" />
+            </div>
             Create a Collection
           </DialogTitle>
           <DialogDescription>
@@ -357,20 +359,20 @@ export function NewCollectionDialog({
         {/* Step indicator */}
         <div className="flex items-center gap-2 mb-2">
           <div className="flex items-center gap-2 flex-1">
-            <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-medium transition-colors ${
-              step === 1 ? "bg-primary text-primary-foreground" : "bg-primary/20 text-primary"
-            }`}>
+            <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-medium transition-all duration-300 ${
+              step === 1 ? "text-primary-foreground shadow-lg" : "text-primary-foreground"
+            }`} style={{ background: 'linear-gradient(135deg, var(--gradient-from), var(--gradient-to))' }}>
               {step > 1 ? <Check className="h-4 w-4" /> : "1"}
             </div>
             <span className={`text-xs font-medium ${step === 1 ? "text-foreground" : "text-muted-foreground"}`}>
               Basics
             </span>
           </div>
-          <div className="h-px flex-1 bg-border" />
+          <div className="h-px flex-1 gradient-line" />
           <div className="flex items-center gap-2 flex-1">
-            <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-medium transition-colors ${
-              step === 2 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-            }`}>
+            <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-medium transition-all duration-300 ${
+              step === 2 ? "text-primary-foreground shadow-lg" : "bg-muted text-muted-foreground"
+            }`} style={step === 2 ? { background: 'linear-gradient(135deg, var(--gradient-from), var(--gradient-to))' } : {}}>
               2
             </div>
             <span className={`text-xs font-medium ${step === 2 ? "text-foreground" : "text-muted-foreground"}`}>
@@ -474,7 +476,7 @@ export function NewCollectionDialog({
                 Cancel
               </Button>
               <Button
-                className="flex-1"
+                className="flex-1 btn-gradient rounded-xl shadow-lg"
                 onClick={() => setStep(2)}
                 disabled={!canProceedToStep2()}
               >
@@ -657,7 +659,7 @@ export function NewCollectionDialog({
                 Back
               </Button>
               <Button
-                className="flex-1"
+                className="flex-1 btn-gradient rounded-xl shadow-lg"
                 onClick={handleCreate}
                 disabled={saving || (linkToEvent && eventMode === "new" && (!newEventTitle.trim() || !newEventDate))}
               >

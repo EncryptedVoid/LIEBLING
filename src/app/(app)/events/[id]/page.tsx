@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { format } from "date-fns";
-import { MapPin, CalendarDays, Link as LinkIcon } from "lucide-react";
+import { MapPin, CalendarDays, Link as LinkIcon, ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { formatTimeDisplay } from "@/lib/time-format";
 
@@ -14,6 +14,7 @@ import { SkeletonCard } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
 import { ItemGrid } from "@/components/item-grid";
 import { AddItemDialog } from "@/components/add-item-dialog";
+import { MassAddItemDialog } from "@/components/mass-add-item-dialog";
 import type { Event, Item, Collection } from "@/lib/types";
 
 export default function EventDetailPage() {
@@ -25,6 +26,7 @@ export default function EventDetailPage() {
   const [allCollections, setAllCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [massDialogOpen, setMassDialogOpen] = useState(false);
   const [timeFormat, setTimeFormat] = useState<"12h" | "24h">("12h");
 
   async function fetchData() {
@@ -74,6 +76,11 @@ export default function EventDetailPage() {
 
   return (
     <div className="page-enter">
+      <div className="mb-6">
+        <Button variant="ghost" size="sm" onClick={() => window.history.back()} className="text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="h-4 w-4 mr-2" /> Back to events
+        </Button>
+      </div>
       {/* Event header */}
       <div className="flex items-start gap-4">
         {event && (
@@ -145,7 +152,10 @@ export default function EventDetailPage() {
         <div>
           <div className="flex items-center justify-between">
             <h2 className="text-base font-medium">Wishlist</h2>
-            <Button size="sm" onClick={() => setDialogOpen(true)} className="shadow-sm">Add item</Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setMassDialogOpen(true)} className="shadow-sm border-dashed">Mass Add</Button>
+              <Button size="sm" onClick={() => setDialogOpen(true)} className="shadow-sm btn-gradient">Add item</Button>
+            </div>
           </div>
           <div className="mt-4">
             <ItemGrid items={items} variant="owner" loading={loading} onDelete={handleDelete} emptyMessage="No items in this event's wishlist yet." />
@@ -165,6 +175,14 @@ export default function EventDetailPage() {
         collections={allCollections}
         defaultCollectionId={event?.collection_id ?? undefined}
         onItemAdded={fetchData}
+      />
+
+      <MassAddItemDialog
+        open={massDialogOpen}
+        onOpenChange={setMassDialogOpen}
+        collections={allCollections}
+        defaultCollectionId={event?.collection_id ?? undefined}
+        onItemsAdded={fetchData}
       />
     </div>
   );

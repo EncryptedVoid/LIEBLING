@@ -237,9 +237,9 @@ export function AddItemDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-2xl rounded-2xl bg-background/95 backdrop-blur-2xl border border-border/50 shadow-2xl">
         <DialogHeader>
-          <DialogTitle>{isEditing ? "Edit item" : "Add an item"}</DialogTitle>
+          <DialogTitle className="font-heading">{isEditing ? "Edit item" : "Add an item"}</DialogTitle>
           <DialogDescription>
             {isEditing ? "Update the details for this item." : "Paste a link and we'll try to fill in the details automatically."}
           </DialogDescription>
@@ -265,7 +265,7 @@ export function AddItemDialog({
                 />
                 {scrapeStatus === "scraping" && (
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <div className="h-4 w-4 border-2 border-muted-foreground/30 border-t-foreground rounded-full animate-spin" />
+                    <div className="h-4 w-4 rounded-full animate-spin" style={{ border: '2px solid var(--glass-border)', borderTopColor: 'var(--gradient-from)' }} />
                   </div>
                 )}
               </div>
@@ -404,7 +404,7 @@ export function AddItemDialog({
               </div>
             )}
 
-            <Button onClick={handleSave} disabled={saving || !url.trim() || !name.trim()} className="mt-1">
+            <Button onClick={handleSave} disabled={saving || !url.trim() || !name.trim()} className="mt-1 btn-gradient rounded-xl shadow-lg">
               {saving ? (isEditing ? "Saving..." : "Adding...") : (isEditing ? "Save changes" : "Add item")}
             </Button>
           </div>
@@ -412,7 +412,7 @@ export function AddItemDialog({
           {/* Right: Preview - Always visible */}
           <div className="hidden sm:flex w-48 shrink-0 flex-col items-center justify-start">
             <p className="text-[10px] text-muted-foreground mb-2">Preview</p>
-            <div className="w-full rounded-xl ring-1 ring-foreground/5 overflow-hidden bg-card shadow-sm">
+            <div className="w-full rounded-2xl overflow-hidden glass-card">
               <div className="aspect-square bg-muted/30 flex items-center justify-center overflow-hidden">
                 {imageUrl ? (
                   <img src={imageUrl} alt="Preview" className="object-contain w-full h-full p-3" />
@@ -425,7 +425,7 @@ export function AddItemDialog({
               </div>
               <div className="p-2.5">
                 {price && (
-                  <p className="text-sm font-bold text-primary font-mono mb-0.5">
+                  <p className="text-sm font-bold gradient-text font-mono mb-0.5">
                     ${parseFloat(price || "0").toFixed(2)}
                   </p>
                 )}

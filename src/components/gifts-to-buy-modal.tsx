@@ -47,12 +47,13 @@ export function GiftsToBuyModal({ isOpen, onClose, items, onUpdate }: GiftsToBuy
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col p-0 overflow-hidden">
-        <DialogHeader className="p-6 pb-2 border-b">
-          <DialogTitle className="text-xl">All Gifts to Buy</DialogTitle>
+      <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col p-0 overflow-hidden bg-background/95 backdrop-blur-2xl border border-border/50 shadow-2xl rounded-2xl">
+        <DialogHeader className="p-8 pb-4 border-b border-border/40">
+          <DialogTitle className="text-3xl font-heading font-bold gradient-text">Outstanding Gifts to Buy</DialogTitle>
+          <p className="text-sm text-muted-foreground mt-1">Review the gifts you need to purchase for your friends and family.</p>
         </DialogHeader>
-        <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <div className="flex-1 overflow-y-auto p-8 scrollbar-thin">
+          <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-6">
             {items.map((item) => {
               const isBought = !!item.bought_at;
               const owner = item.owner;
@@ -61,79 +62,79 @@ export function GiftsToBuyModal({ isOpen, onClose, items, onUpdate }: GiftsToBuy
               return (
                 <div
                   key={item.id}
-                  className={`flex bg-card ring-1 ring-border rounded-xl overflow-hidden shadow-sm transition-all ${
-                    isBought ? "opacity-60" : "hover:shadow-md"
+                  className={`flex flex-col sm:flex-row bg-card rounded-2xl overflow-hidden transition-all duration-300 glass-card gradient-border-card hover:-translate-y-1 ${
+                    isBought ? "opacity-60" : "hover:shadow-lg"
                   }`}
                 >
                   {/* LEFT SIDE: Info */}
-                  <div className="flex-1 p-4 flex flex-col border-r bg-muted/10">
-                    <div className="flex items-center gap-3 mb-3">
-                      <Avatar className="h-10 w-10 border shadow-sm">
+                  <div className="flex-1 p-5 flex flex-col border-r border-border/10 bg-muted/10">
+                    <div className="flex items-center gap-3 mb-4">
+                      <Avatar className="h-12 w-12 border shadow-sm ring-2 ring-primary/10">
                         <AvatarImage src={owner?.avatar_url ?? undefined} />
-                        <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                        <AvatarFallback className="text-xs bg-gradient-to-br from-primary/20 to-primary/5 text-primary font-bold">
                           {initials}
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="text-sm font-semibold">{owner?.display_name}</p>
-                        <p className="text-xs text-muted-foreground line-clamp-1">Gift for their wishlist</p>
+                        <p className="text-lg font-semibold tracking-tight">{owner?.display_name}</p>
+                        <p className="text-sm text-muted-foreground">Gift for their wishlist</p>
                       </div>
                     </div>
-                    <div className="mt-auto">
-                      <p className="text-sm font-medium leading-snug line-clamp-2 mb-1">{item.name}</p>
+                    <div className="mt-auto pt-4 border-t border-border/20">
+                      <p className="text-base font-semibold leading-snug line-clamp-2">{item.name}</p>
                     </div>
                   </div>
 
                   {/* RIGHT SIDE: Preview & Actions */}
-                  <div className="w-[180px] shrink-0 flex flex-col bg-card">
+                  <div className="w-full sm:w-[220px] shrink-0 flex flex-col bg-muted/5 border-l border-border/40">
                     <div 
-                      className="h-28 bg-muted/30 p-2 relative cursor-pointer group flex items-center justify-center"
+                      className="h-32 p-3 relative cursor-pointer group flex items-center justify-center overflow-hidden"
                       onClick={() => window.open(item.link, "_blank")}
                     >
                       {item.image_url ? (
-                         <img src={item.image_url} alt="" className="h-full w-full object-contain mix-blend-multiply flex-shrink-0 group-hover:scale-105 transition-transform" />
+                         <img src={item.image_url} alt="" className="h-full w-full object-contain mix-blend-multiply flex-shrink-0 group-hover:scale-105 transition-transform duration-500" />
                       ) : (
-                         <div className="text-xs text-muted-foreground flex flex-col items-center">
-                           <ExternalLink className="h-4 w-4 mb-1" />
+                         <div className="text-sm text-muted-foreground flex flex-col items-center opacity-70">
+                           <ExternalLink className="h-6 w-6 mb-2 text-primary/40" />
                            No Image
                          </div>
                       )}
                       {item.price && (
-                        <div className="absolute top-2 right-2 bg-background/90 backdrop-blur-sm px-1.5 py-0.5 rounded text-xs font-mono font-bold shadow-sm">
+                        <div className="absolute top-3 right-3 bg-background/95 backdrop-blur-md px-2 py-1 rounded-md text-sm font-mono font-bold shadow-md border border-border/50 text-primary">
                           ${item.price.toFixed(2)}
                         </div>
                       )}
                     </div>
                     
-                    <div className="p-2 flex flex-col gap-1.5 mt-auto bg-muted/10 border-t">
+                    <div className="p-3 flex flex-col gap-2 mt-auto pb-4">
                       <Button
                         variant="secondary"
                         size="sm"
-                        className="w-full text-xs h-7"
+                        className="w-full h-9 rounded-lg"
                         onClick={() => window.open(item.link, "_blank")}
                       >
-                        <ExternalLink className="h-3 w-3 mr-1" /> View Product
+                        <ExternalLink className="h-4 w-4 mr-1.5" /> View Product
                       </Button>
                       
                       {isBought ? (
                         <Button
                           variant="outline"
                           size="sm"
-                          className="w-full text-xs h-7"
+                          className="w-full h-9 rounded-lg"
                           onClick={() => handleAction("unmark", item.id)}
                           disabled={loadingId === item.id}
                         >
-                          <Undo2 className="h-3 w-3 mr-1" /> Undo Mark
+                          <Undo2 className="h-4 w-4 mr-1.5" /> Undo Mark
                         </Button>
                       ) : (
                         <Button
                           variant="default"
                           size="sm"
-                          className="w-full text-xs h-7 bg-green-600 hover:bg-green-700 text-white"
+                          className="w-full h-9 rounded-lg btn-gradient shadow-md"
                           onClick={() => handleAction("mark", item.id)}
                           disabled={loadingId === item.id}
                         >
-                          <Check className="h-3 w-3 mr-1" /> Mark Bought
+                          <Check className="h-4 w-4 mr-1.5" /> Mark Bought
                         </Button>
                       )}
                     </div>

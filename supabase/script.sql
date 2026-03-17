@@ -200,8 +200,10 @@ create policy "Users: self update" on public.users for update using (id = auth.u
 
 -- Friendships & Groups
 create policy "Friendships: access" on public.friendships for select using (requester_id = auth.uid() or addressee_id = auth.uid());
-create policy "Friend Groups: owner manage" on public.friend_groups for all using (user_id = auth.uid());
-create policy "Friend Group Members: owner manage" on public.friend_group_members for all using (exists (select 1 from public.friend_groups where id = group_id and user_id = auth.uid()));
+create policy "Friend Groups: select access" on public.friend_groups for select using (user_id = auth.uid() or exists (select 1 from public.friend_group_members where group_id = id and user_id = auth.uid()));
+create policy "Friend Groups: owner manage" on public.friend_groups for insert, update, delete using (user_id = auth.uid());
+create policy "Friend Group Members: select access" on public.friend_group_members for select using (user_id = auth.uid() or exists (select 1 from public.friend_groups where id = group_id and user_id = auth.uid()));
+create policy "Friend Group Members: owner manage" on public.friend_group_members for insert, update, delete using (exists (select 1 from public.friend_groups where id = group_id and user_id = auth.uid()));
 
 -- Collections (Privacy Aware)
 create policy "Collections: owner manage" on public.collections for all using (user_id = auth.uid());

@@ -21,13 +21,13 @@ function SignupFormWrapper() {
 
 export default function SignupPage() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen px-4">
+    <div className="flex flex-col items-center justify-center min-h-screen px-4 gradient-mesh">
       <Suspense fallback={<AuthForm mode="signup" />}>
         <SignupFormWrapper />
       </Suspense>
-      <p className="mt-4 text-sm text-muted-foreground">
+      <p className="mt-6 text-sm text-muted-foreground animate-fade-up" style={{ animationDelay: '200ms' }}>
         Already have an account?{" "}
-        <Link href="/login" className="underline underline-offset-4 hover:text-foreground">
+        <Link href="/login" className="font-medium text-primary hover:text-primary/80 transition-colors underline underline-offset-4">
           Log in
         </Link>
       </p>
