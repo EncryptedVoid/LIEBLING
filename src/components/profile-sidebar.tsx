@@ -130,6 +130,10 @@ export function ProfileSidebar({
                         </AvatarFallback>
                       </Avatar>
 
+                      {/* Activity assignment badges are handled via CSS —
+                          The wishlist page will inject these based on activity_members data.
+                          This is a placeholder for the integration point. */}
+
                       {/* "ME" Badge */}
                       {isCurrentUser && (
                         <div className="absolute -bottom-0.5 -right-0.5 h-5 w-5 rounded-full bg-primary border-2 border-background flex items-center justify-center shadow-sm">

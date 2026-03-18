@@ -49,34 +49,15 @@ export function TemplatePicker({
 
       const { data: col, error: colErr } = await supabase
         .from("collections")
-        .insert({ user_id: user.id, name: template.name })
+        .insert({
+          user_id: user.id,
+          name: template.name,
+          emoji: template.emoji,
+          banner_url: template.banner_url || null,
+        })
         .select("id")
         .single();
       if (colErr) throw colErr;
-
-      const itemInserts = template.items.map((ti) => ({
-        user_id: user.id,
-        name: ti.name,
-        link: "#",
-        price: ti.placeholder_price ?? null,
-      }));
-
-      const { data: newItems, error: itemErr } = await supabase
-        .from("items")
-        .insert(itemInserts)
-        .select("id");
-      if (itemErr) throw itemErr;
-
-      if (newItems && newItems.length > 0) {
-        const links = newItems.map((item) => ({
-          item_id: item.id,
-          collection_id: col.id,
-        }));
-        const { error: linkErr } = await supabase
-          .from("item_collections")
-          .insert(links);
-        if (linkErr) throw linkErr;
-      }
 
       toast.success(`"${template.name}" collection created with ${template.items.length} items.`);
       setSelected(null);
@@ -115,6 +96,11 @@ export function TemplatePicker({
                     : "border-muted hover:border-muted-foreground/20 hover:bg-muted/30"
                 }`}
               >
+                {template.banner_url && (
+                  <div className="h-16 -mx-3 -mt-3 mb-2 rounded-t-lg overflow-hidden">
+                    <img src={template.banner_url} alt="" className="w-full h-full object-cover" />
+                  </div>
+                )}
                 <div className="flex items-center justify-between w-full">
                   <span className="text-xl">{template.emoji}</span>
                   {isSelected && (
@@ -126,9 +112,6 @@ export function TemplatePicker({
                 <span className="text-xs font-medium">{template.name}</span>
                 <span className="text-[10px] text-muted-foreground leading-snug">
                   {template.description}
-                </span>
-                <span className="text-[10px] text-muted-foreground">
-                  {template.items.length} items
                 </span>
               </button>
             );

@@ -27,6 +27,7 @@ const navLinks = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/wishlist", label: "Wishlists" },
   { href: "/events", label: "Events" },
+  { href: "/activities", label: "Activities" },
   { href: "/friends", label: "Friends" },
 ];
 
@@ -36,9 +37,19 @@ export function Nav({ user }: NavProps) {
   const supabase = createClient();
 
   async function handleLogout() {
+    // Clear client-side session
     await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
+
+    // Clear server-side cookies via API route
+    try {
+      await fetch("/api/auth/signout", { method: "POST" });
+    } catch {
+      // Continue even if this fails
+    }
+
+    // Hard redirect — forces full page reload so middleware sees no session
+    // Do NOT use router.push() here — it preserves cached state
+    window.location.href = "/login";
   }
 
   const initials = user.display_name

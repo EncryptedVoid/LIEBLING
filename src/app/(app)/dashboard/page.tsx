@@ -144,10 +144,10 @@ export default function DashboardPage() {
       <div className="space-y-6 page-enter">
         <div className="h-10 w-56 rounded-xl skeleton-shimmer" />
         <div className="h-28 rounded-2xl skeleton-shimmer" />
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="h-[400px] rounded-2xl skeleton-shimmer" />
-          <div className="h-[400px] rounded-2xl skeleton-shimmer" />
-          <div className="h-[400px] rounded-2xl skeleton-shimmer" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6" style={{ gridAutoRows: '550px' }}>
+          <div className="rounded-2xl skeleton-shimmer" />
+          <div className="rounded-2xl skeleton-shimmer" />
+          <div className="rounded-2xl skeleton-shimmer" />
         </div>
       </div>
     );
@@ -170,10 +170,10 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* 3-column layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-[400px] stagger-grid">
+      {/* 3-column layout — forced equal height */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 stagger-grid" style={{ gridAutoRows: '550px' }}>
         {/* Birthday Countdowns */}
-        <div className="flex flex-col">
+        <div className="flex flex-col h-full">
           <BirthdayCountdownSection currentUser={user} friends={friends} />
         </div>
 

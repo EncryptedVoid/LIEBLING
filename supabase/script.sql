@@ -95,6 +95,27 @@ create table public.friend_group_members (
   primary key (group_id, user_id)
 );
 
+-- ACTIVITIES: Secret Santa & Gift Roulette
+create table public.activities (
+  id uuid primary key default gen_random_uuid(),
+  creator_id uuid not null references public.users(id) on delete cascade,
+  type text not null check (type in ('secret_santa', 'gift_roulette')),
+  title text not null,
+  description text,
+  status text not null default 'open' check (status in ('open', 'active', 'complete')),
+  join_code text unique not null,
+  banner_url text,
+  created_at timestamptz not null default now()
+);
+
+create table public.activity_members (
+  activity_id uuid not null references public.activities(id) on delete cascade,
+  user_id uuid not null references public.users(id) on delete cascade,
+  assigned_to uuid references public.users(id) on delete set null,
+  joined_at timestamptz not null default now(),
+  primary key (activity_id, user_id)
+);
+
 -- ═══════════════════════════════════════════════════════
 -- 2. INDEXES
 -- ═══════════════════════════════════════════════════════
@@ -108,6 +129,12 @@ create index idx_friendships_requester on public.friendships(requester_id);
 create index idx_friendships_addressee on public.friendships(addressee_id);
 create index idx_friend_groups_user on public.friend_groups(user_id);
 create index idx_friend_group_members_group on public.friend_group_members(group_id);
+
+-- Activity Indexes
+create index idx_activities_creator on public.activities(creator_id);
+create index idx_activities_join_code on public.activities(join_code);
+create index idx_activity_members_activity on public.activity_members(activity_id);
+create index idx_activity_members_user on public.activity_members(user_id);
 
 -- ═══════════════════════════════════════════════════════
 -- 3. CORE FUNCTIONS & TRIGGERS
@@ -138,6 +165,24 @@ begin
     end loop;
     code := 'LIEB-' || part1 || '-' || part2;
     if not exists (select 1 from public.users where friend_code = code) then return code; end if;
+  end loop;
+end; $$;
+
+-- Activity Join Code Generator: XXXX-XXXX
+create or replace function public.generate_activity_join_code()
+returns text language plpgsql as $$
+declare
+  chars text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  code text; part1 text; part2 text;
+begin
+  loop
+    part1 := ''; part2 := '';
+    for i in 1..4 loop
+      part1 := part1 || substr(chars, floor(random() * length(chars) + 1)::int, 1);
+      part2 := part2 || substr(chars, floor(random() * length(chars) + 1)::int, 1);
+    end loop;
+    code := part1 || '-' || part2;
+    if not exists (select 1 from public.activities where join_code = code) then return code; end if;
   end loop;
 end; $$;
 
@@ -189,21 +234,34 @@ group by i.id;
 alter table public.users enable row level security;
 alter table public.items enable row level security;
 alter table public.collections enable row level security;
+alter table public.item_collections enable row level security; -- Fixed: Added RLS
 alter table public.events enable row level security;
 alter table public.friendships enable row level security;
 alter table public.friend_groups enable row level security;
 alter table public.friend_group_members enable row level security;
+alter table public.activities enable row level security;
+alter table public.activity_members enable row level security;
 
 -- Users
 create policy "Users: public read, self update" on public.users for select using (true);
 create policy "Users: self update" on public.users for update using (id = auth.uid());
 
--- Friendships & Groups
-create policy "Friendships: access" on public.friendships for select using (requester_id = auth.uid() or addressee_id = auth.uid());
+-- Friendships (Fixed: Added Insert/Update/Delete)
+create policy "Friendships: select" on public.friendships for select using (requester_id = auth.uid() or addressee_id = auth.uid());
+create policy "Friendships: insert" on public.friendships for insert with check (requester_id = auth.uid());
+create policy "Friendships: update" on public.friendships for update using (requester_id = auth.uid() or addressee_id = auth.uid());
+create policy "Friendships: delete" on public.friendships for delete using (requester_id = auth.uid() or addressee_id = auth.uid());
+
+-- Friend Groups (Fixed: Corrected Insert logic)
 create policy "Friend Groups: select access" on public.friend_groups for select using (user_id = auth.uid() or exists (select 1 from public.friend_group_members where group_id = id and user_id = auth.uid()));
-create policy "Friend Groups: owner manage" on public.friend_groups for insert, update, delete using (user_id = auth.uid());
+create policy "Friend Groups: owner insert" on public.friend_groups for insert with check (user_id = auth.uid());
+create policy "Friend Groups: owner update delete" on public.friend_groups for update using (user_id = auth.uid());
+create policy "Friend Groups: owner delete" on public.friend_groups for delete using (user_id = auth.uid());
+
+-- Friend Group Members (Fixed: Corrected Insert logic)
 create policy "Friend Group Members: select access" on public.friend_group_members for select using (user_id = auth.uid() or exists (select 1 from public.friend_groups where id = group_id and user_id = auth.uid()));
-create policy "Friend Group Members: owner manage" on public.friend_group_members for insert, update, delete using (exists (select 1 from public.friend_groups where id = group_id and user_id = auth.uid()));
+create policy "Friend Group Members: owner insert" on public.friend_group_members for insert with check (exists (select 1 from public.friend_groups where id = group_id and user_id = auth.uid()));
+create policy "Friend Group Members: owner delete" on public.friend_group_members for delete using (exists (select 1 from public.friend_groups where id = group_id and user_id = auth.uid()));
 
 -- Collections (Privacy Aware)
 create policy "Collections: owner manage" on public.collections for all using (user_id = auth.uid());
@@ -214,6 +272,10 @@ create policy "Collections: select access" on public.collections for select usin
     )
   )
 );
+
+-- Item Collections Junction (Fixed: Added Policies)
+create policy "Item Collections: owner manage" on public.item_collections for all using (exists (select 1 from public.items where id = item_id and user_id = auth.uid()));
+create policy "Item Collections: read via friendship" on public.item_collections for select using (exists (select 1 from public.items i where i.id = item_id and public.are_friends(auth.uid(), i.user_id)));
 
 -- Events (Privacy Aware)
 create policy "Events: owner manage" on public.events for all using (user_id = auth.uid());
@@ -228,6 +290,17 @@ create policy "Events: select access" on public.events for select using (
 -- Items
 create policy "Items: read access" on public.items for select using (user_id = auth.uid() or public.are_friends(auth.uid(), user_id));
 create policy "Items: owner manage" on public.items for all using (user_id = auth.uid());
+
+-- Activities (New)
+create policy "Activities: creator manage" on public.activities for all using (creator_id = auth.uid());
+create policy "Activities: member read" on public.activities for select using (creator_id = auth.uid() or exists (select 1 from public.activity_members where activity_id = id and user_id = auth.uid()));
+create policy "Activities: public read by join_code" on public.activities for select using (true);
+
+-- Activity Members (New)
+create policy "Activity Members: read" on public.activity_members for select using (user_id = auth.uid() or exists (select 1 from public.activities where id = activity_id and creator_id = auth.uid()));
+create policy "Activity Members: insert" on public.activity_members for insert with check (user_id = auth.uid() or exists (select 1 from public.activities where id = activity_id and creator_id = auth.uid()));
+create policy "Activity Members: update" on public.activity_members for update using (exists (select 1 from public.activities where id = activity_id and creator_id = auth.uid()));
+create policy "Activity Members: delete" on public.activity_members for delete using (user_id = auth.uid() or exists (select 1 from public.activities where id = activity_id and creator_id = auth.uid()));
 
 -- ═══════════════════════════════════════════════════════
 -- 6. STORAGE BUCKETS

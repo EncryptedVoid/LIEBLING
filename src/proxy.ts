@@ -23,8 +23,7 @@ export default async function proxy(request: NextRequest) {
     }
   );
 
-  // Refresh the session (important — keeps tokens alive)
-  const {
+    const {
     data: { user },
   } = await supabase.auth.getUser();
 
@@ -32,11 +31,67 @@ export default async function proxy(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/login") ||
     request.nextUrl.pathname.startsWith("/signup");
 
+  const isApiRoute = request.nextUrl.pathname.startsWith("/api");
+
   const isPublicPage =
     isAuthPage ||
+    isApiRoute ||
     request.nextUrl.pathname.startsWith("/invite") ||
     request.nextUrl.pathname.startsWith("/onboarding") ||
+    request.nextUrl.pathname.startsWith("/features") ||
     request.nextUrl.pathname === "/";
+
+  // ── ADD THE STALE SESSION CHECK HERE (after isPublicPage is defined) ──
+  if (user && !isPublicPage && !isAuthPage) {
+    const { data: profile } = await supabase
+      .from("users")
+      .select("id")
+      .eq("id", user.id)
+      .single();
+
+    if (!profile) {
+      await supabase.auth.signOut();
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      const redirectResponse = NextResponse.redirect(url);
+      request.cookies.getAll().forEach((cookie) => {
+        if (cookie.name.startsWith("sb-")) {
+          redirectResponse.cookies.set(cookie.name, "", {
+            expires: new Date(0),
+            path: "/",
+          });
+        }
+      });
+      return redirectResponse;
+    }
+  }
+
+  // Not logged in + trying to access app → redirect to login
+  if (!user && !isPublicPage) {
+    const { data: profile } = await supabase
+      .from("users")
+      .select("id")
+      .eq("id", user.id)
+      .single();
+
+    if (!profile) {
+      // Stale session — sign out and redirect
+      await supabase.auth.signOut();
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      const redirectResponse = NextResponse.redirect(url);
+      // Clear cookies
+      request.cookies.getAll().forEach((cookie) => {
+        if (cookie.name.startsWith("sb-")) {
+          redirectResponse.cookies.set(cookie.name, "", {
+            expires: new Date(0),
+            path: "/",
+          });
+        }
+      });
+      return redirectResponse;
+    }
+  }
 
   // Not logged in + trying to access app → redirect to login
   if (!user && !isPublicPage) {

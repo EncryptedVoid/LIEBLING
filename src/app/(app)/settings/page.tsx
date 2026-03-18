@@ -98,6 +98,7 @@ export default function SettingsPage() {
 
   async function handleDeleteAccount() {
     await supabase.auth.signOut();
+    await fetch("/api/auth/signout", { method: "POST" }).catch(() => {});
     window.location.href = "/";
   }
 

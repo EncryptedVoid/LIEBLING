@@ -67,3 +67,22 @@ export type Friendship = {
 export type ClaimedItemWithOwner = Item & {
   owner?: User;
 };
+
+export type Activity = {
+  id: string;
+  creator_id: string;
+  type: "secret_santa" | "gift_roulette";
+  title: string;
+  description: string | null;
+  status: "open" | "active" | "complete";
+  join_code: string;
+  banner_url: string | null;
+  created_at: string;
+};
+
+export type ActivityMember = {
+  activity_id: string;
+  user_id: string;
+  assigned_to: string | null;
+  joined_at: string;
+};

@@ -144,7 +144,7 @@ export function BirthdayCountdownSection({
   };
 
   return (
-    <Card className="glass-card gradient-border-card flex flex-col min-h-[400px] h-full rounded-2xl overflow-hidden">
+    <Card className="glass-card gradient-border-card flex flex-col h-full rounded-2xl overflow-hidden">
       <CardHeader className="pb-3 shrink-0 border-b border-border/40">
         <div className="flex items-center gap-2">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -164,7 +164,7 @@ export function BirthdayCountdownSection({
         </div>
       </CardHeader>
       
-      <CardContent className="flex-1 p-0 relative overflow-hidden flex items-center justify-center bg-muted/5 min-h-[340px]">
+      <CardContent className="flex-1 p-0 relative overflow-hidden flex items-center justify-center bg-muted/5">
         <div 
           className="flex transition-transform duration-300 ease-in-out h-full w-full"
           style={{ transform: `translateX(-${currentIndex * 100}%)` }}

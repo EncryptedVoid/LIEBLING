@@ -115,15 +115,20 @@ export default function WishlistPage() {
     let el = document.getElementById(styleId) as HTMLStyleElement | null;
 
     if (!isOwnWishlist && activeViewUser?.theme_color) {
-      const css = THEME_CSS[activeViewUser.theme_color] ?? "";
-      if (css) {
+      const entry = THEME_CSS[activeViewUser.theme_color];
+      if (entry && (entry.light || entry.dark)) {
         if (!el) {
           el = document.createElement("style");
           el.id = styleId;
           document.head.appendChild(el);
         }
-        el.textContent = `:root, .dark { ${css} }`;
+        // Scope overrides to .friend-theme-scope container only
+        el.textContent = `.friend-theme-scope { ${entry.light} } .dark .friend-theme-scope { ${entry.dark} }`;
       }
+    } else {
+      // Clear when switching back to own wishlist
+      const existing = document.getElementById(styleId);
+      if (existing) existing.remove();
     }
 
     return () => {
@@ -131,14 +136,6 @@ export default function WishlistPage() {
       if (existing) existing.remove();
     };
   }, [isOwnWishlist, activeViewUser?.theme_color]);
-
-  // Restore own theme when switching back
-  useEffect(() => {
-    if (isOwnWishlist) {
-      const existing = document.getElementById("friend-theme-override");
-      if (existing) existing.remove();
-    }
-  }, [isOwnWishlist]);
 
   // Init
   useEffect(() => {
@@ -208,7 +205,7 @@ export default function WishlistPage() {
   // Filtered items
   const filteredItems = useMemo(() => {
     let result = activeCollectionId === null
-      ? items
+      ? items.filter((i) => !i.gifted_at) // Hide gifted from "All Items"
       : items.filter((i) => i.collection_ids?.includes(activeCollectionId));
 
     if (searchQuery.trim()) {
@@ -350,10 +347,10 @@ export default function WishlistPage() {
     : [];
 
   return (
-    <div className="page-enter flex h-[calc(100vh-4rem)]">
+    <div className={`page-enter flex h-[calc(100vh-4rem)] overflow-hidden ${!isOwnWishlist ? 'friend-theme-scope' : ''}`}>
       {/* Profile Sidebar - Left Side */}
       {currentUser && (
-        <aside className="w-20 shrink-0 hidden md:block">
+        <aside className={`w-20 shrink-0 hidden md:block ${!isOwnWishlist ? 'friend-theme-scope' : ''}`}>
           <ProfileSidebar
             currentUser={currentUser}
             friends={friends}
