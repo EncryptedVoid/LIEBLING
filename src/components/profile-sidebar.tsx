@@ -2,6 +2,7 @@
 
 import { useRef, useState, useEffect } from "react";
 import { ChevronUp, ChevronDown } from "lucide-react";
+import { format } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -138,6 +139,10 @@ export function ProfileSidebar({
                         </div>
                       )}
                     </div>
+                    
+                    <p className={`text-[9px] font-bold mt-0.5 uppercase tracking-wider ${isActive ? "text-primary" : "text-muted-foreground"}`}>
+                      {isCurrentUser ? "YOU" : user.birthday ? format(new Date(user.birthday), "MMM") : "\u00A0"}
+                    </p>
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="right" sideOffset={8}>

@@ -2,7 +2,7 @@
 -- 1. TABLES & BASE SCHEMA
 -- ═══════════════════════════════════════════════════════
 
--- USERS: Extends Supabase auth.users with app preferences
+-- USERS: Extends Supabase auth.users
 create table public.users (
   id uuid primary key references auth.users(id) on delete cascade,
   display_name text not null,
@@ -16,18 +16,21 @@ create table public.users (
   created_at timestamptz not null default now()
 );
 
--- COLLECTIONS: Groups of wishlist items
+-- COLLECTIONS: Groups of wishlist items with privacy settings
 create table public.collections (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.users(id) on delete cascade,
   name text not null,
+  description text,
   emoji text default null,
   banner_url text default null,
   is_system boolean not null default false,
+  visibility text not null default 'public' check (visibility in ('public', 'exclusive')),
+  allowed_users uuid[] not null default '{}',
   created_at timestamptz not null default now()
 );
 
--- ITEMS: Individual wishlist items with claim and purchase tracking
+-- ITEMS: Individual wishlist items
 create table public.items (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.users(id) on delete cascade,
@@ -35,6 +38,7 @@ create table public.items (
   price numeric,
   image_url text,
   link text not null,
+  custom_links jsonb not null default '[]'::jsonb,
   is_claimed boolean not null default false,
   claimed_by uuid references public.users(id) on delete set null,
   gifted_at timestamptz default null,
@@ -42,7 +46,7 @@ create table public.items (
   created_at timestamptz not null default now()
 );
 
--- JUNCTION: Item <-> Collection (Many-to-Many)
+-- JUNCTION: Item <-> Collection
 create table public.item_collections (
   item_id uuid not null references public.items(id) on delete cascade,
   collection_id uuid not null references public.collections(id) on delete cascade,
@@ -60,6 +64,9 @@ create table public.events (
   time time,
   location text,
   banner_url text default null,
+  visibility text not null default 'public' check (visibility in ('public', 'exclusive')),
+  allowed_users uuid[] not null default '{}',
+  custom_links jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now()
 );
 
@@ -74,6 +81,20 @@ create table public.friendships (
   constraint no_self_friend check (requester_id != addressee_id)
 );
 
+-- FRIEND GROUPS: User-defined clusters of friends
+create table public.friend_groups (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.users(id) on delete cascade,
+  name text not null,
+  created_at timestamptz not null default now()
+);
+
+create table public.friend_group_members (
+  group_id uuid not null references public.friend_groups(id) on delete cascade,
+  user_id uuid not null references public.users(id) on delete cascade,
+  primary key (group_id, user_id)
+);
+
 -- ═══════════════════════════════════════════════════════
 -- 2. INDEXES
 -- ═══════════════════════════════════════════════════════
@@ -85,8 +106,8 @@ create index idx_items_bought_at on public.items(bought_at);
 create index idx_events_user on public.events(user_id);
 create index idx_friendships_requester on public.friendships(requester_id);
 create index idx_friendships_addressee on public.friendships(addressee_id);
-create index idx_item_collections_item on public.item_collections(item_id);
-create index idx_item_collections_collection on public.item_collections(collection_id);
+create index idx_friend_groups_user on public.friend_groups(user_id);
+create index idx_friend_group_members_group on public.friend_group_members(group_id);
 
 -- ═══════════════════════════════════════════════════════
 -- 3. CORE FUNCTIONS & TRIGGERS
@@ -107,9 +128,7 @@ create or replace function public.generate_friend_code()
 returns text language plpgsql as $$
 declare
   chars text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  part1 text := '';
-  part2 text := '';
-  code text;
+  part1 text; part2 text; code text;
 begin
   loop
     part1 := ''; part2 := '';
@@ -120,23 +139,16 @@ begin
     code := 'LIEB-' || part1 || '-' || part2;
     if not exists (select 1 from public.users where friend_code = code) then return code; end if;
   end loop;
-end;
-$$;
+end; $$;
 
 -- Signup Handler
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = '' as $$
 begin
   insert into public.users (id, display_name, avatar_url, friend_code)
-  values (
-    new.id,
-    coalesce(new.raw_user_meta_data ->> 'display_name', 'User'),
-    new.raw_user_meta_data ->> 'avatar_url',
-    public.generate_friend_code()
-  );
+  values (new.id, coalesce(new.raw_user_meta_data ->> 'display_name', 'User'), new.raw_user_meta_data ->> 'avatar_url', public.generate_friend_code());
   return new;
-end;
-$$;
+end; $$;
 
 create trigger on_auth_user_created after insert on auth.users for each row execute function public.handle_new_user();
 
@@ -158,7 +170,7 @@ create or replace view public.items_visible
 with (security_invoker = true)
 as
 select
-  i.id, i.user_id, i.name, i.price, i.image_url, i.link, i.gifted_at, i.bought_at, i.created_at,
+  i.id, i.user_id, i.name, i.price, i.image_url, i.link, i.custom_links, i.gifted_at, i.bought_at, i.created_at,
   case when i.user_id = auth.uid() then false else i.is_claimed end as is_claimed,
   case
     when i.user_id = auth.uid() then null
@@ -179,49 +191,63 @@ alter table public.items enable row level security;
 alter table public.collections enable row level security;
 alter table public.events enable row level security;
 alter table public.friendships enable row level security;
-alter table public.item_collections enable row level security;
+alter table public.friend_groups enable row level security;
+alter table public.friend_group_members enable row level security;
 
--- Condensed Global Policies
-create policy "Profiles: public read, self update" on public.users for select using (true);
-create policy "Profiles: self edit" on public.users for update using (id = auth.uid());
+-- Users
+create policy "Users: public read, self update" on public.users for select using (true);
+create policy "Users: self update" on public.users for update using (id = auth.uid());
 
-create policy "Items: friend/owner read" on public.items for select using (user_id = auth.uid() or public.are_friends(auth.uid(), user_id));
+-- Friendships & Groups
+create policy "Friendships: access" on public.friendships for select using (requester_id = auth.uid() or addressee_id = auth.uid());
+create policy "Friend Groups: select access" on public.friend_groups for select using (user_id = auth.uid() or exists (select 1 from public.friend_group_members where group_id = id and user_id = auth.uid()));
+create policy "Friend Groups: owner manage" on public.friend_groups for insert, update, delete using (user_id = auth.uid());
+create policy "Friend Group Members: select access" on public.friend_group_members for select using (user_id = auth.uid() or exists (select 1 from public.friend_groups where id = group_id and user_id = auth.uid()));
+create policy "Friend Group Members: owner manage" on public.friend_group_members for insert, update, delete using (exists (select 1 from public.friend_groups where id = group_id and user_id = auth.uid()));
+
+-- Collections (Privacy Aware)
+create policy "Collections: owner manage" on public.collections for all using (user_id = auth.uid());
+create policy "Collections: select access" on public.collections for select using (
+  user_id = auth.uid() OR (
+    public.are_friends(auth.uid(), user_id) AND (
+      visibility = 'public' OR auth.uid() = ANY(allowed_users)
+    )
+  )
+);
+
+-- Events (Privacy Aware)
+create policy "Events: owner manage" on public.events for all using (user_id = auth.uid());
+create policy "Events: select access" on public.events for select using (
+  user_id = auth.uid() OR (
+    public.are_friends(auth.uid(), user_id) AND (
+      visibility = 'public' OR auth.uid() = ANY(allowed_users)
+    )
+  )
+);
+
+-- Items
+create policy "Items: read access" on public.items for select using (user_id = auth.uid() or public.are_friends(auth.uid(), user_id));
 create policy "Items: owner manage" on public.items for all using (user_id = auth.uid());
 
-create policy "Collections: access" on public.collections for select using (user_id = auth.uid() or public.are_friends(auth.uid(), user_id));
-create policy "Collections: owner manage" on public.collections for all using (user_id = auth.uid());
-
-create policy "Junction: access" on public.item_collections for select using (exists (select 1 from public.items where id = item_id and (user_id = auth.uid() or public.are_friends(auth.uid(), user_id))));
-create policy "Junction: owner manage" on public.item_collections for all using (exists (select 1 from public.items where id = item_id and user_id = auth.uid()));
-
-create policy "Events: owner manage" on public.events for all using (user_id = auth.uid());
-create policy "Events: friend read" on public.events for select using (public.are_friends(auth.uid(), user_id));
-
-create policy "Friendships: access" on public.friendships for select using (requester_id = auth.uid() or addressee_id = auth.uid());
-create policy "Friendships: request" on public.friendships for insert with check (requester_id = auth.uid());
-create policy "Friendships: accept" on public.friendships for update using (addressee_id = auth.uid()) with check (status = 'accepted');
-create policy "Friendships: terminate" on public.friendships for delete using (requester_id = auth.uid() or addressee_id = auth.uid());
-
 -- ═══════════════════════════════════════════════════════
--- 6. STORAGE & BUCKETS
+-- 6. STORAGE BUCKETS
 -- ═══════════════════════════════════════════════════════
 
-insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true), ('banners', 'banners', true) on conflict (id) do nothing;
+insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true), ('banners', 'banners', true) on conflict do nothing;
 
-create policy "Storage: owner manage folder" on storage.objects for all using (bucket_id in ('avatars', 'banners') and auth.role() = 'authenticated' and (storage.foldername(name))[1] = auth.uid()::text);
+create policy "Storage: owner manage" on storage.objects for all using (bucket_id in ('avatars', 'banners') and auth.role() = 'authenticated' and (storage.foldername(name))[1] = auth.uid()::text);
 create policy "Storage: public read" on storage.objects for select using (bucket_id in ('avatars', 'banners'));
 
 -- ═══════════════════════════════════════════════════════
 -- 7. APPLICATION LOGIC (RPC)
 -- ═══════════════════════════════════════════════════════
 
--- CLAIM LOGIC
 create or replace function public.claim_item(item_id uuid)
 returns void language plpgsql security definer set search_path = '' as $$
 begin
   update public.items set is_claimed = true, claimed_by = auth.uid()
   where id = item_id and is_claimed = false and user_id != auth.uid() and public.are_friends(auth.uid(), user_id);
-  if not found then raise exception 'Claim failed: check friendship or claim status.'; end if;
+  if not found then raise exception 'Cannot claim item.'; end if;
 end; $$;
 
 create or replace function public.unclaim_item(item_id uuid)
@@ -231,17 +257,16 @@ begin
   if not found then raise exception 'Only the claimer can unclaim.'; end if;
 end; $$;
 
--- PURCHASE LOGIC
 create or replace function public.mark_item_bought(item_id uuid)
 returns void language plpgsql security definer set search_path = '' as $$
 begin
   update public.items set bought_at = now() where id = item_id and claimed_by = auth.uid() and bought_at is null;
-  if not found then raise exception 'Cannot mark as bought: check claim status.'; end if;
+  if not found then raise exception 'Cannot mark as bought.'; end if;
 end; $$;
 
 create or replace function public.unmark_item_bought(item_id uuid)
 returns void language plpgsql security definer set search_path = '' as $$
 begin
   update public.items set bought_at = null where id = item_id and claimed_by = auth.uid() and bought_at is not null;
-  if not found then raise exception 'Cannot unmark: item not found or not bought.'; end if;
+  if not found then raise exception 'Cannot unmark.'; end if;
 end; $$;

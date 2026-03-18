@@ -31,7 +31,10 @@ export type Collection = {
   user_id: string;
   name: string;
   emoji: string | null;
+  description: string | null;
   banner_url: string | null;
+  visibility: "public" | "exclusive";
+  allowed_users: string[];
   is_system: boolean;
   created_at: string;
 };
@@ -46,6 +49,9 @@ export type Event = {
   time: string | null;
   location: string | null;
   banner_url: string | null;
+  visibility: "public" | "exclusive";
+  allowed_users: string[];
+  custom_links?: { label: string; url: string }[];
   created_at: string;
 };
 

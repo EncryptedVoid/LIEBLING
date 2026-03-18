@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Camera } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { ImageCropper } from "@/components/image-cropper";
 import { toast } from "sonner";
 
 type AvatarUploadProps = {
@@ -30,6 +31,8 @@ export function AvatarUpload({
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -45,9 +48,19 @@ export function AvatarUpload({
       return;
     }
 
-    // Show preview immediately
+    // Show cropper
     const objectUrl = URL.createObjectURL(file);
-    setPreview(objectUrl);
+    setSelectedFile(file);
+    setCropImageSrc(objectUrl);
+  }
+
+  async function handleCropComplete(croppedBlob: Blob) {
+    setCropImageSrc(null);
+    if (!selectedFile) return;
+
+    const croppedFile = new File([croppedBlob], selectedFile.name, { type: "image/jpeg" });
+    const previewUrl = URL.createObjectURL(croppedBlob);
+    setPreview(previewUrl);
 
     setUploading(true);
     try {
@@ -56,13 +69,13 @@ export function AvatarUpload({
       } = await supabase.auth.getUser();
       if (!user) throw new Error("Not logged in.");
 
-      const ext = file.name.split(".").pop() ?? "jpg";
+      const ext = croppedFile.name.split(".").pop() ?? "jpg";
       const path = `${user.id}/avatar.${ext}`;
 
       // Upload (upsert to overwrite previous)
       const { error: uploadErr } = await supabase.storage
         .from("avatars")
-        .upload(path, file, { upsert: true, contentType: file.type });
+        .upload(path, croppedFile, { upsert: true, contentType: "image/jpeg" });
       if (uploadErr) throw uploadErr;
 
       // Get public URL
@@ -139,6 +152,17 @@ export function AvatarUpload({
       >
         {uploading ? "Uploading..." : currentUrl ? "Change photo" : "Add photo"}
       </Button>
+
+      {cropImageSrc && (
+        <ImageCropper
+          imageSrc={cropImageSrc}
+          aspect={1}
+          isOpen={!!cropImageSrc}
+          onClose={() => setCropImageSrc(null)}
+          onCropComplete={handleCropComplete}
+          title="Crop Avatar"
+        />
+      )}
     </div>
   );
 }

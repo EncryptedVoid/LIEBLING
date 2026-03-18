@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
 import { BirthdayCountdownSection } from "@/components/birthday-countdown-section";
 import { GiftToBuyCard } from "@/components/gift-to-buy-card";
+import { GiftsToBuyModal } from "@/components/gifts-to-buy-modal";
 import { toast } from "sonner";
 
 import type { User, Item, Event } from "@/lib/types";
@@ -34,6 +35,15 @@ export default function DashboardPage() {
   const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>([]);
   const [claimedItems, setClaimedItems] = useState<ClaimedItem[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [giftsModalOpen, setGiftsModalOpen] = useState(false);
+
+  const timeBasedGreeting = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 18) return "Good afternoon";
+    return "Good evening";
+  }, []);
 
   useEffect(() => {
     fetchDashboard();
@@ -131,53 +141,56 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="space-y-4 page-enter">
-        <div className="h-8 w-48 rounded skeleton-shimmer" />
-        <div className="h-24 rounded-xl skeleton-shimmer" />
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="h-48 rounded-xl skeleton-shimmer" />
-          <div className="h-48 rounded-xl skeleton-shimmer" />
+      <div className="space-y-6 page-enter">
+        <div className="h-10 w-56 rounded-xl skeleton-shimmer" />
+        <div className="h-28 rounded-2xl skeleton-shimmer" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="h-[400px] rounded-2xl skeleton-shimmer" />
+          <div className="h-[400px] rounded-2xl skeleton-shimmer" />
+          <div className="h-[400px] rounded-2xl skeleton-shimmer" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="page-enter flex flex-col gap-4">
+    <div className="page-enter flex flex-col gap-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-          <Sparkles className="h-5 w-5 text-primary" />
+      <div className="flex items-center gap-4 animate-fade-up">
+        <div className="h-12 w-12 rounded-2xl flex items-center justify-center animate-float" style={{ background: 'linear-gradient(135deg, var(--gradient-from), var(--gradient-to))', boxShadow: '0 4px 20px var(--glow)' }}>
+          <Sparkles className="h-6 w-6 text-primary-foreground" />
         </div>
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Hey, {user?.display_name?.split(" ")[0]}
+          <h1 className="text-3xl font-heading font-bold tracking-tight">
+            <span className="gradient-text">{timeBasedGreeting}</span>, {user?.display_name?.split(" ")[0]}
           </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
+          <p className="text-sm text-muted-foreground mt-0.5">
             Here&apos;s what&apos;s happening with your wishlists.
           </p>
         </div>
       </div>
 
-      {/* Birthday Countdowns - Now includes friends */}
-      <BirthdayCountdownSection currentUser={user} friends={friends} />
+      {/* 3-column layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-[400px] stagger-grid">
+        {/* Birthday Countdowns */}
+        <div className="flex flex-col">
+          <BirthdayCountdownSection currentUser={user} friends={friends} />
+        </div>
 
-      {/* Two-column layout: Events + Gifts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1 min-h-0">
         {/* Upcoming Events */}
-        <Card className="shadow-sm flex flex-col min-h-[280px] max-h-[400px]">
+        <Card className="glass-card gradient-border-card flex flex-col h-[400px] rounded-2xl">
           <CardHeader className="pb-2 shrink-0">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <CalendarDays className="h-4 w-4" />
-                Upcoming Events ({upcomingEvents.length})
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <div className="p-1.5 rounded-lg" style={{ background: 'linear-gradient(135deg, var(--gradient-from), var(--gradient-to))' }}>
+                  <CalendarDays className="h-3.5 w-3.5 text-primary-foreground" />
+                </div>
+                Upcoming Events
+                <Badge variant="secondary" className="text-[10px] font-mono">{upcomingEvents.length}</Badge>
               </CardTitle>
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/events">View all</Link>
-              </Button>
             </div>
           </CardHeader>
-          <CardContent className="flex-1 overflow-hidden">
+          <CardContent className="flex-1 overflow-hidden flex flex-col pt-2">
             {upcomingEvents.length === 0 ? (
               <EmptyState
                 variant="events"
@@ -190,15 +203,21 @@ export default function DashboardPage() {
                 </Button>
               </EmptyState>
             ) : (
-              <div className="overflow-y-auto h-full pr-1 scrollbar-thin">
+              <div 
+                className="overflow-hidden flex-1 relative"
+                style={{
+                  maskImage: upcomingEvents.length > 3 ? 'linear-gradient(to bottom, black 50%, transparent 100%)' : 'none',
+                  WebkitMaskImage: upcomingEvents.length > 3 ? 'linear-gradient(to bottom, black 50%, transparent 100%)' : 'none'
+                }}
+              >
                 <div className="space-y-2">
-                  {upcomingEvents.map((event) => (
+                  {upcomingEvents.slice(0, 3).map((event) => (
                     <Link
                       key={event.id}
                       href={`/events/${event.id}`}
-                      className="flex items-center gap-3 rounded-xl p-2.5 hover:bg-muted/60 hover:shadow-sm transition-all group"
+                      className="flex items-center gap-3 rounded-xl p-2.5 hover:bg-primary/5 transition-all duration-300 group hover:shadow-md hover:shadow-primary/5"
                     >
-                      <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-primary/15 to-primary/5 flex flex-col items-center justify-center shrink-0 group-hover:from-primary/20 group-hover:to-primary/10 transition-colors shadow-inner text-primary">
+                      <div className="h-10 w-10 rounded-xl flex flex-col items-center justify-center shrink-0 transition-all duration-300 group-hover:scale-105" style={{ background: 'linear-gradient(135deg, var(--gradient-from), var(--gradient-to))', color: 'var(--primary-foreground)' }}>
                         <span className="text-[8px] font-medium uppercase leading-none">
                           {format(new Date(event.date), "MMM")}
                         </span>
@@ -229,31 +248,41 @@ export default function DashboardPage() {
                       </Badge>
                     </Link>
                   ))}
+                  
+                  {/* Padding to push down content so mask doesn't hide last item fully */}
+                  {upcomingEvents.length > 3 && <div className="h-8" />}
                 </div>
               </div>
+            )}
+            {upcomingEvents.length > 0 && (
+              <Button variant="outline" className="w-full mt-4 shrink-0 transition-all active:scale-95 hover:bg-primary/5 hover:border-primary/30 hover:shadow-md hover:shadow-primary/10 rounded-xl" asChild>
+                <Link href="/events?tab=friends&sort=date-asc">View all events</Link>
+              </Button>
             )}
           </CardContent>
         </Card>
 
-        {/* Gifts to Buy - Updated with new cards */}
-        <Card className="shadow-sm flex flex-col min-h-[280px] max-h-[500px]">
+        {/* Gifts to Buy */}
+        <Card className="glass-card gradient-border-card flex flex-col h-[400px] rounded-2xl">
           <CardHeader className="pb-2 shrink-0">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Gift className="h-4 w-4" />
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <div className="p-1.5 rounded-lg" style={{ background: 'linear-gradient(135deg, var(--gradient-to), var(--gradient-accent))' }}>
+                <Gift className="h-3.5 w-3.5 text-primary-foreground" />
+              </div>
               Gifts to Buy
               {unboughtCount > 0 && (
-                <Badge variant="default" className="text-[10px]">
+                <Badge className="text-[10px] font-mono btn-gradient border-0">
                   {unboughtCount} to buy
                 </Badge>
               )}
               {boughtCount > 0 && (
-                <Badge variant="secondary" className="text-[10px]">
+                <Badge variant="secondary" className="text-[10px] font-mono">
                   {boughtCount} bought
                 </Badge>
               )}
             </CardTitle>
           </CardHeader>
-          <CardContent className="flex-1 overflow-hidden">
+          <CardContent className="flex-1 overflow-hidden flex flex-col pt-2">
             {sortedClaimedItems.length === 0 ? (
               <EmptyState
                 variant="gifts"
@@ -266,21 +295,45 @@ export default function DashboardPage() {
                 </Button>
               </EmptyState>
             ) : (
-              <div className="overflow-y-auto h-full pr-1 scrollbar-thin">
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {sortedClaimedItems.map((item) => (
-                    <GiftToBuyCard
-                      key={item.id}
-                      item={item}
-                      onUpdate={fetchDashboard}
-                    />
-                  ))}
+              <>
+                <div 
+                  className="flex-1 overflow-hidden relative"
+                  style={{
+                    maskImage: sortedClaimedItems.length > 3 ? 'linear-gradient(to bottom, black 55%, transparent 100%)' : 'none',
+                    WebkitMaskImage: sortedClaimedItems.length > 3 ? 'linear-gradient(to bottom, black 55%, transparent 100%)' : 'none'
+                  }}
+                >
+                  <div className="grid grid-cols-1 gap-2 pb-6">
+                    {sortedClaimedItems.slice(0, 3).map((item) => (
+                      <GiftToBuyCard
+                        key={item.id}
+                        item={item}
+                        onUpdate={fetchDashboard}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
+                {sortedClaimedItems.length > 0 && (
+                  <Button 
+                    variant="outline" 
+                    className="w-full mt-4 shrink-0 transition-all active:scale-95 hover:bg-primary/5 hover:border-primary/30 hover:shadow-md hover:shadow-primary/10 rounded-xl"
+                    onClick={() => setGiftsModalOpen(true)}
+                  >
+                    View all items to buy
+                  </Button>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
       </div>
+
+      <GiftsToBuyModal 
+        isOpen={giftsModalOpen} 
+        onClose={() => setGiftsModalOpen(false)} 
+        items={sortedClaimedItems} 
+        onUpdate={fetchDashboard} 
+      />
     </div>
   );
 }

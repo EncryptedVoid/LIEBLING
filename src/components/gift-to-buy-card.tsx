@@ -83,10 +83,10 @@ export function GiftToBuyCard({ item, onUpdate }: GiftToBuyCardProps) {
   return (
     <TooltipProvider>
       <Card
-        className={`group relative overflow-hidden transition-all duration-300 ${
+        className={`group relative overflow-hidden transition-all duration-400 rounded-2xl ${
           isBought
             ? "opacity-50 grayscale"
-            : "hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-1"
+            : "glass-card gradient-border-card hover:-translate-y-1"
         }`}
       >
         {/* Owner Avatar Badge - Top Right */}
@@ -110,9 +110,9 @@ export function GiftToBuyCard({ item, onUpdate }: GiftToBuyCardProps) {
 
         {/* Bought Indicator Overlay */}
         {isBought && (
-          <div className="absolute inset-0 z-5 flex items-center justify-center bg-background/30">
-            <div className="bg-green-500/90 text-white px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1.5 shadow-lg">
-              <Check className="h-3 w-3" />
+          <div className="absolute inset-0 z-5 flex items-center justify-center" style={{ background: 'var(--glass)', backdropFilter: 'blur(8px)' }}>
+            <div className="px-4 py-2 rounded-full text-xs font-semibold flex items-center gap-1.5 shadow-lg text-primary-foreground" style={{ background: 'linear-gradient(135deg, oklch(0.65 0.20 150), oklch(0.55 0.18 160))' }}>
+              <Check className="h-3.5 w-3.5" />
               Bought
             </div>
           </div>
@@ -142,7 +142,7 @@ export function GiftToBuyCard({ item, onUpdate }: GiftToBuyCardProps) {
         <div className="p-3">
           {item.price && (
             <p className={`text-sm font-bold font-mono mb-0.5 ${
-              isBought ? "text-muted-foreground" : "text-primary"
+              isBought ? "text-muted-foreground" : "gradient-text"
             }`}>
               ${item.price.toFixed(2)}
             </p>

@@ -222,7 +222,7 @@ export function ItemCard(props: ItemCardProps) {
         <Confetti show={showConfetti} />
         <div
           onClick={openLink}
-          className={`group flex items-center gap-3 rounded-xl p-2.5 cursor-pointer ring-1 ring-foreground/5 bg-card hover:shadow-md hover:shadow-primary/5 hover:ring-primary/20 transition-all duration-200 ${
+          className={`group flex items-center gap-3 rounded-2xl p-2.5 cursor-pointer glass-card hover:-translate-y-0.5 transition-all duration-300 ${
             isGifted ? "opacity-50" : ""
           }`}
         >
@@ -275,7 +275,7 @@ export function ItemCard(props: ItemCardProps) {
             {item.price && (
               <p
                 className={`text-sm font-bold mt-0.5 font-mono ${
-                  isGifted ? "text-muted-foreground" : "text-primary"
+                  isGifted ? "text-muted-foreground" : "gradient-text"
                 }`}
               >
                 ${item.price.toFixed(2)}
@@ -383,7 +383,7 @@ export function ItemCard(props: ItemCardProps) {
     <>
       <Confetti show={showConfetti} />
       <Card
-        className={`overflow-hidden group transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-1 hover:ring-primary/20 relative card-gradient-accent ${
+        className={`overflow-hidden group transition-all duration-400 glass-card gradient-border-card rounded-2xl relative hover:-translate-y-1 ${
           isGifted ? "opacity-60" : ""
         }`}
       >
@@ -496,7 +496,7 @@ export function ItemCard(props: ItemCardProps) {
             {item.price && (
               <p
                 className={`text-base font-bold font-mono mb-0.5 ${
-                  isGifted ? "text-muted-foreground line-through" : "text-primary"
+                  isGifted ? "text-muted-foreground line-through" : "gradient-text"
                 }`}
               >
                 ${item.price.toFixed(2)}

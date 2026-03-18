@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { ImagePlus, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ImageCropper } from "@/components/image-cropper";
 import { toast } from "sonner";
 
 type BannerUploadProps = {
@@ -25,6 +26,8 @@ export function BannerUpload({
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -40,22 +43,32 @@ export function BannerUpload({
       return;
     }
 
-    // Show preview immediately
+    // Show cropper immediately
     const objectUrl = URL.createObjectURL(file);
-    setPreview(objectUrl);
+    setSelectedFile(file);
+    setCropImageSrc(objectUrl);
+  }
+
+  async function handleCropComplete(croppedBlob: Blob) {
+    setCropImageSrc(null);
+    if (!selectedFile) return;
+
+    const croppedFile = new File([croppedBlob], selectedFile.name, { type: "image/jpeg" });
+    const previewUrl = URL.createObjectURL(croppedBlob);
+    setPreview(previewUrl);
 
     setUploading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not logged in.");
 
-      const ext = file.name.split(".").pop() ?? "jpg";
+      const ext = croppedFile.name.split(".").pop() ?? "jpg";
       const path = `${user.id}/${entityType}/${entityId}/banner.${ext}`;
 
       // Upload (upsert to overwrite previous)
       const { error: uploadErr } = await supabase.storage
         .from("banners")
-        .upload(path, file, { upsert: true, contentType: file.type });
+        .upload(path, croppedFile, { upsert: true, contentType: "image/jpeg" });
       if (uploadErr) throw uploadErr;
 
       // Get public URL
@@ -163,6 +176,17 @@ export function BannerUpload({
         className="hidden"
         onChange={handleFile}
       />
+
+      {cropImageSrc && (
+        <ImageCropper
+          imageSrc={cropImageSrc}
+          aspect={21 / 9}
+          isOpen={!!cropImageSrc}
+          onClose={() => setCropImageSrc(null)}
+          onCropComplete={handleCropComplete}
+          title="Crop Banner"
+        />
+      )}
     </div>
   );
 }

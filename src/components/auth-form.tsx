@@ -66,9 +66,12 @@ export function AuthForm({ mode, prefillEmail, prefillPassword }: AuthFormProps)
   }
 
   return (
-    <Card className="w-full max-w-sm shadow-lg shadow-primary/5">
-      <CardHeader>
-        <CardTitle className="text-lg">{isSignup ? "Create an account" : "Welcome back"}</CardTitle>
+    <Card className="w-full max-w-sm glass-card gradient-border-card rounded-2xl animate-scale-in">
+      <CardHeader className="text-center">
+        <div className="mx-auto mb-2">
+          <span className="text-2xl font-heading font-bold gradient-text-animated">lieblings</span>
+        </div>
+        <CardTitle className="text-lg font-heading">{isSignup ? "Create an account" : "Welcome back"}</CardTitle>
         <CardDescription>
           {isSignup ? "Sign up to start building your wishlists." : "Log in to your Lieblings account."}
         </CardDescription>
@@ -100,21 +103,21 @@ export function AuthForm({ mode, prefillEmail, prefillPassword }: AuthFormProps)
           {isSignup && (
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="displayName">Name</Label>
-              <Input id="displayName" type="text" placeholder="Your name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required />
+              <Input id="displayName" type="text" placeholder="Your name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required className="rounded-xl" />
             </div>
           )}
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => { setEmail(e.target.value); setNoAccountBanner(false); }} required />
+            <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => { setEmail(e.target.value); setNoAccountBanner(false); }} required className="rounded-xl" />
           </div>
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="password">Password</Label>
-            <Input id="password" type="password" placeholder="••••••••" value={password} onChange={(e) => { setPassword(e.target.value); setNoAccountBanner(false); }} required minLength={6} />
+            <Input id="password" type="password" placeholder="••••••••" value={password} onChange={(e) => { setPassword(e.target.value); setNoAccountBanner(false); }} required minLength={6} className="rounded-xl" />
           </div>
 
-          <Button type="submit" disabled={loading} className="mt-2 shadow-sm">
+          <Button type="submit" disabled={loading} className="mt-2 btn-gradient rounded-xl shadow-lg">
             {loading
               ? isSignup ? "Creating account..." : "Logging in..."
               : isSignup ? "Sign up" : "Log in"}

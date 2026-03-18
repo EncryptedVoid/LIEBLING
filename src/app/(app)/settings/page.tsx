@@ -115,13 +115,13 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-3xl mx-auto page-enter">
-      <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-      <p className="text-xs text-muted-foreground mt-1">Manage your profile and preferences.</p>
+      <h1 className="text-3xl font-heading font-bold tracking-tight gradient-text">Settings</h1>
+      <p className="text-sm text-muted-foreground mt-1">Manage your profile and preferences.</p>
 
       {/* ── Side-by-side: Profile + Appearance ─────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
         {/* Profile */}
-        <Card className="shadow-sm">
+        <Card className="glass-card rounded-2xl">
           <CardHeader>
             <CardTitle className="text-sm">Profile</CardTitle>
             <CardDescription>Your photo, name, and birthday.</CardDescription>
@@ -161,14 +161,14 @@ export default function SettingsPage() {
               </Popover>
             </div>
 
-            <Button onClick={handleSaveProfile} disabled={savingProfile} className="shadow-sm">
+            <Button onClick={handleSaveProfile} disabled={savingProfile} className="btn-gradient rounded-xl shadow-lg">
               {savingProfile ? "Saving..." : "Save profile"}
             </Button>
           </CardContent>
         </Card>
 
         {/* Appearance & Preferences */}
-        <Card className="shadow-sm">
+        <Card className="glass-card rounded-2xl">
           <CardHeader>
             <CardTitle className="text-sm">Appearance & Preferences</CardTitle>
             <CardDescription>Customize how Lieblings looks and works.</CardDescription>
@@ -249,7 +249,7 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <Button onClick={handleSaveAppearance} disabled={savingAppearance} className="shadow-sm">
+            <Button onClick={handleSaveAppearance} disabled={savingAppearance} className="btn-gradient rounded-xl shadow-lg">
               {savingAppearance ? "Saving..." : "Save preferences"}
             </Button>
           </CardContent>
@@ -259,7 +259,7 @@ export default function SettingsPage() {
       <Separator className="my-8" />
 
       {/* Danger zone */}
-      <Card className="border-destructive/30 shadow-sm">
+      <Card className="border-destructive/30 glass-card rounded-2xl">
         <CardHeader>
           <CardTitle className="text-sm text-destructive">Danger zone</CardTitle>
         </CardHeader>

@@ -14,18 +14,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TimeInput } from "@/components/ui/time-input";
+import { LocationPicker } from "@/components/location-picker";
+import { PrivacySelector } from "@/components/privacy-selector";
 import { toast } from "sonner";
 
-import type { Collection } from "@/lib/types";
+import type { Collection, User } from "@/lib/types";
 
 export default function NewEventPage() {
   const router = useRouter();
@@ -36,7 +32,7 @@ export default function NewEventPage() {
   const [description, setDescription] = useState("");
   const [date, setDate] = useState<Date | undefined>();
   const [time, setTime] = useState("");
-  const [location, setLocation] = useState("");
+  const [locationObj, setLocationObj] = useState<any>(null);
   const [collectionId, setCollectionId] = useState("new");
   const [newCollectionName, setNewCollectionName] = useState("");
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -49,6 +45,11 @@ export default function NewEventPage() {
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const [useCollectionBanner, setUseCollectionBanner] = useState(false);
   const [keepBannersInSync, setKeepBannersInSync] = useState(true);
+
+  // Privacy 
+  const [visibility, setVisibility] = useState<"public" | "exclusive">("public");
+  const [allowedUsers, setAllowedUsers] = useState<string[]>([]);
+  const [friends, setFriends] = useState<User[]>([]);
 
   // Get selected collection's banner if linking to existing
   const selectedCollection = collections.find((c) => c.id === collectionId);
@@ -69,6 +70,22 @@ export default function NewEventPage() {
       }
       const { data: cols } = await supabase.from("collections").select("*").order("name");
       setCollections(cols ?? []);
+
+      if (user) {
+        const { data: friendships } = await supabase
+          .from("friendships")
+          .select("requester_id, addressee_id")
+          .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
+          .eq("status", "accepted");
+          
+        if (friendships && friendships.length > 0) {
+          const friendIds = friendships.map((f) =>
+            f.requester_id === user.id ? f.addressee_id : f.requester_id
+          );
+          const { data: friendProfiles } = await supabase.from("users").select("*").in("id", friendIds);
+          setFriends(friendProfiles as User[] ?? []);
+        }
+      }
     }
     load();
   }, []);
@@ -156,6 +173,8 @@ export default function NewEventPage() {
       let linkedCollectionId: string | null = null;
       let finalBannerUrl: string | null = null;
 
+      const locationString = locationObj ? JSON.stringify(locationObj) : null;
+
       // Create event first to get ID for banner upload
       const { data: newEvent, error: eventErr } = await supabase.from("events").insert({
         user_id: user.id,
@@ -163,7 +182,9 @@ export default function NewEventPage() {
         description: description.trim() || null,
         date: format(date, "yyyy-MM-dd"),
         time: time || null,
-        location: location.trim() || null,
+        location: locationString,
+        visibility: visibility,
+        allowed_users: visibility === "exclusive" ? allowedUsers : [],
         collection_id: null, // Will update after
       }).select("id").single();
 
@@ -328,9 +349,13 @@ export default function NewEventPage() {
             </div>
 
             {/* Location */}
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="location">Location</Label>
-              <Input id="location" placeholder="e.g. Our house, The Grand Hotel" value={location} onChange={(e) => setLocation(e.target.value)} />
+            <div className="flex flex-col gap-1.5 z-10">
+              <Label>Location</Label>
+              <LocationPicker
+                value={locationObj}
+                onChange={setLocationObj}
+                apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}
+              />
             </div>
 
             {/* Collection — choice + name on same row */}
@@ -368,6 +393,17 @@ export default function NewEventPage() {
                   className={collectionId !== "new" ? "opacity-40" : ""}
                 />
               </div>
+            </div>
+
+            {/* Privacy Selector */}
+            <div className="mt-1">
+              <PrivacySelector
+                visibility={visibility}
+                setVisibility={setVisibility}
+                allowedUsers={allowedUsers}
+                setAllowedUsers={setAllowedUsers}
+                friends={friends}
+              />
             </div>
 
             {/* Banner Sync Option */}
@@ -432,9 +468,9 @@ export default function NewEventPage() {
                     {format(previewDate, "EEE, MMM d")}{time && ` at ${formatTimeDisplay(time, timeFormat)}`}
                   </p>
                 )}
-                {location && (
+                {locationObj && (
                   <p className="text-[10px] text-muted-foreground flex items-center gap-0.5 mt-0.5">
-                    <MapPin className="h-2 w-2" />{location}
+                    <MapPin className="h-2 w-2" />{locationObj.name || locationObj.address}
                   </p>
                 )}
                 {previewDate && isFuture(previewDate) && (

@@ -3,12 +3,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import { format, formatDistanceToNow, isPast } from "date-fns";
-import { MapPin, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { MapPin, MoreHorizontal, Pencil, Trash2, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -41,6 +42,7 @@ export function EventCard({ event, onDelete, onEdit, showOwnerBadge = false }: E
   const supabase = createClient();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteCollectionToo, setDeleteCollectionToo] = useState(false);
 
   const eventDate = new Date(event.date);
   const past = isPast(eventDate);
@@ -48,6 +50,10 @@ export function EventCard({ event, onDelete, onEdit, showOwnerBadge = false }: E
 
   async function handleDelete() {
     setDeleting(true);
+    if (deleteCollectionToo && event.collection_id) {
+      const { error: colErr } = await supabase.from("collections").delete().eq("id", event.collection_id);
+      if (colErr) toast.error("Couldn't delete linked wishlist.");
+    }
     const { error } = await supabase.from("events").delete().eq("id", event.id);
     if (error) { toast.error("Couldn't delete event."); } else { toast.success("Event deleted."); onDelete?.(event.id); }
     setDeleting(false);
@@ -64,7 +70,7 @@ export function EventCard({ event, onDelete, onEdit, showOwnerBadge = false }: E
 
   return (
     <>
-      <Card className="overflow-hidden group transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-0.5 card-gradient-accent relative h-full flex flex-col">
+      <Card className="overflow-hidden group transition-all duration-400 glass-card gradient-border-card rounded-2xl relative h-full flex flex-col hover:-translate-y-1">
         {/* Banner image */}
         {event.banner_url && (
           <div className="h-20 overflow-hidden shrink-0">
@@ -78,7 +84,7 @@ export function EventCard({ event, onDelete, onEdit, showOwnerBadge = false }: E
 
         {/* Color accent bar (only if no banner) */}
         {!event.banner_url && (
-          <div className={`h-1 shrink-0 ${past ? "bg-muted-foreground/20" : "bg-gradient-to-r from-primary/60 via-primary/20 to-transparent"}`} />
+          <div className="h-1.5 shrink-0" style={{ background: past ? 'var(--muted)' : 'linear-gradient(90deg, var(--gradient-from), var(--gradient-to), var(--gradient-accent))' }} />
         )}
 
         {/* Owner badge (for timeline view) */}
@@ -97,9 +103,9 @@ export function EventCard({ event, onDelete, onEdit, showOwnerBadge = false }: E
         <Link href={`/events/${event.id}`} className="flex-1 flex flex-col">
           <CardContent className="p-4 flex gap-3 flex-1">
             {/* Date block */}
-            <div className={`h-14 w-14 rounded-xl flex flex-col items-center justify-center shrink-0 transition-colors shadow-inner ${
-              past ? "bg-muted text-muted-foreground" : "bg-gradient-to-br from-primary/15 to-primary/5 text-primary group-hover:from-primary/20 group-hover:to-primary/10"
-            }`}>
+            <div className={`h-14 w-14 rounded-2xl flex flex-col items-center justify-center shrink-0 transition-all duration-300 group-hover:scale-105 ${
+              past ? "bg-muted text-muted-foreground" : ""
+            }`} style={past ? {} : { background: 'linear-gradient(135deg, var(--gradient-from), var(--gradient-to))', color: 'var(--primary-foreground)', boxShadow: '0 4px 12px var(--glow)' }}>
               <span className="text-[10px] font-medium uppercase leading-none">{format(eventDate, "MMM")}</span>
               <span className="text-lg font-bold leading-tight">{format(eventDate, "d")}</span>
             </div>
@@ -107,10 +113,13 @@ export function EventCard({ event, onDelete, onEdit, showOwnerBadge = false }: E
             {/* Info */}
             <div className="flex-1 min-w-0 flex flex-col">
               <div className="flex items-start justify-between gap-2">
-                <h3 className="font-medium text-sm leading-snug group-hover:text-primary transition-colors line-clamp-2 flex-1">
+                <h3 className="font-heading font-semibold text-base leading-snug group-hover:text-primary transition-colors line-clamp-2 flex-1">
                   {showOwnerBadge && event.owner ? `${event.owner.display_name.split(" ")[0]}'s ${event.title}` : event.title}
                 </h3>
                 <div className="flex items-center gap-1 shrink-0">
+                  {event.visibility === "exclusive" && (
+                    <Badge variant="secondary" className="gap-1 bg-muted/80 ml-1 text-[10px]"><Lock className="h-3 w-3" /> Exclusive</Badge>
+                  )}
                   {!past && (
                     <Badge className="text-[10px] shadow-sm whitespace-nowrap">{formatDistanceToNow(eventDate, { addSuffix: true })}</Badge>
                   )}
@@ -124,9 +133,18 @@ export function EventCard({ event, onDelete, onEdit, showOwnerBadge = false }: E
               </p>
 
               {event.location && (
-                <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5 line-clamp-1">
+                <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5 max-w-full">
                   <MapPin className="h-2.5 w-2.5 shrink-0" />
-                  <span className="truncate">{event.location}</span>
+                  <span className="truncate">
+                    {(() => {
+                      try {
+                        const parsed = JSON.parse(event.location);
+                        return parsed.name || parsed.address || event.location;
+                      } catch {
+                        return event.location;
+                      }
+                    })()}
+                  </span>
                 </p>
               )}
 
@@ -179,7 +197,26 @@ export function EventCard({ event, onDelete, onEdit, showOwnerBadge = false }: E
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete &quot;{event.title}&quot;?</AlertDialogTitle>
-            <AlertDialogDescription>Items in the linked collection won&apos;t be affected.</AlertDialogDescription>
+            <AlertDialogDescription asChild>
+              <div className="flex flex-col gap-4 mt-2">
+                <p>This action cannot be undone.</p>
+                {event.collection_id && event.collection_name && (
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="deleteCollection"
+                      checked={deleteCollectionToo}
+                      onCheckedChange={(c: boolean | string) => setDeleteCollectionToo(c === true)}
+                    />
+                    <label
+                      htmlFor="deleteCollection"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      Also delete linked wishlist &quot;{event.collection_name}&quot;
+                    </label>
+                  </div>
+                )}
+              </div>
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
