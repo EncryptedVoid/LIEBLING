@@ -148,7 +148,7 @@ export function BannerUpload({
           </div>
           {uploading && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-              <Loader2 className="h-6 w-6 text-white animate-spin" />
+              <Loader2 className="h-6 w-6 mkt-text animate-spin" />
             </div>
           )}
         </div>

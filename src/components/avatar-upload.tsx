@@ -126,7 +126,7 @@ export function AvatarUpload({
           disabled={uploading}
           className="absolute inset-0 flex items-center justify-center rounded-full bg-black/0 group-hover:bg-black/40 transition-colors cursor-pointer"
         >
-          <Camera className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+          <Camera className="h-5 w-5 mkt-text opacity-0 group-hover:opacity-100 transition-opacity" />
         </button>
 
         {uploading && (

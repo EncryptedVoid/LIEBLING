@@ -882,7 +882,7 @@ export default function WishlistPage() {
                   {deleteItemsToo && <div className="h-2 w-2 rounded-full bg-destructive" />}
                 </div>
                 <div>
-                  <p className="font-medium text-destructive">Delete items too</p>
+                  <p className="font-medium text-destructive">Delete All Items</p>
                   <p className="text-muted-foreground text-[11px]">
                     Permanently remove {exclusiveItems.length} item
                     {exclusiveItems.length !== 1 && "s"}

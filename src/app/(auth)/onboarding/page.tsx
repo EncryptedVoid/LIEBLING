@@ -175,7 +175,7 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="flex flex-col lg:flex-row min-h-screen bg-background text-foreground">
+    <div className="flex flex-col lg:flex-row min-h-screen mkt-bg mkt-text transition-colors duration-500">
       {/* Left: Steps */}
       <div className="flex-1 flex flex-col items-center justify-center p-6 relative overflow-y-auto">
         <div className="w-full max-w-md my-auto pb-20 lg:pb-0">
@@ -405,11 +405,11 @@ export default function OnboardingPage() {
       </div>
 
       {/* Right: Live Profile Preview */}
-      <div className="hidden lg:flex w-[400px] xl:w-[500px] bg-muted/30 p-12 items-center justify-center border-l relative overflow-hidden">
+      <div className="hidden lg:flex w-[400px] xl:w-[500px] mkt-bg-subtle p-12 items-center justify-center border-l mkt-border relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-bl-full blur-3xl" />
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-primary/5 rounded-tr-full blur-3xl" />
 
-        <div className="w-full max-w-[340px] rounded-2xl overflow-hidden shadow-2xl border border-primary/10 bg-card text-card-foreground transition-all duration-300 transform scale-100 hover:scale-[1.02]">
+        <div className="w-full max-w-[340px] rounded-2xl overflow-hidden shadow-2xl border mkt-card-border mkt-bg-card mkt-text transition-all duration-300 transform scale-100 hover:scale-[1.02]">
           {/* Banner */}
           <div className="h-32 relative" style={{ background: 'linear-gradient(135deg, var(--gradient-from), var(--gradient-to), var(--gradient-accent))' }}>
             <div className="absolute -bottom-10 left-6">

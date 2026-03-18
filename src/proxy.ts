@@ -39,6 +39,8 @@ export default async function proxy(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/invite") ||
     request.nextUrl.pathname.startsWith("/onboarding") ||
     request.nextUrl.pathname.startsWith("/features") ||
+    request.nextUrl.pathname.startsWith("/about") ||
+    request.nextUrl.pathname.startsWith("/upcoming-updates") ||
     request.nextUrl.pathname === "/";
 
   // ── ADD THE STALE SESSION CHECK HERE (after isPublicPage is defined) ──

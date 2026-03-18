@@ -127,7 +127,7 @@ export default function WeddingBlueprintPage() {
         <Card className="glass-card gradient-border-card rounded-2xl animate-in fade-in-50 slide-in-from-bottom-2 duration-300">
           <CardHeader className="text-center">
             <div className="mx-auto h-14 w-14 rounded-2xl bg-gradient-to-br from-rose-500 to-pink-500 flex items-center justify-center shadow-lg mb-2">
-              <Heart className="h-7 w-7 text-white" />
+              <Heart className="h-7 w-7 mkt-text" />
             </div>
             <CardTitle className="text-xl font-heading">Who&apos;s the lucky couple?</CardTitle>
             <CardDescription>Enter your partner&apos;s friend code.</CardDescription>

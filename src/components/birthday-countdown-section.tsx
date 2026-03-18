@@ -242,7 +242,7 @@ function CountdownCard({ birthday }: { birthday: UpcomingBirthday }) {
         <div className="relative mx-auto mb-4 w-fit">
           <div className="absolute -inset-1 rounded-full animate-glow-pulse opacity-40" style={{ background: 'linear-gradient(135deg, var(--gradient-from), var(--gradient-to))' }} />
           <div className="relative h-20 w-20 rounded-full flex items-center justify-center border-4 border-background shadow-lg" style={{ background: 'linear-gradient(135deg, var(--gradient-from), var(--gradient-to))' }}>
-            <Calendar className="h-8 w-8 text-white" />
+            <Calendar className="h-8 w-8 mkt-text" />
           </div>
         </div>
       )}

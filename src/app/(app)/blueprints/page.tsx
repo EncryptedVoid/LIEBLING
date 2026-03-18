@@ -43,7 +43,7 @@ export default function BlueprintsPage() {
             <div className={`h-2 bg-gradient-to-r ${bp.color}`} />
             <CardContent className="p-6 flex flex-col gap-4">
               <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${bp.color} flex items-center justify-center shadow-lg`}>
-                <bp.icon className="h-6 w-6 text-white" />
+                <bp.icon className="h-6 w-6 mkt-text" />
               </div>
               <div>
                 <div className="flex items-center gap-2">

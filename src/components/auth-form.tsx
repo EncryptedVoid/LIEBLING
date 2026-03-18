@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { Sparkles } from "lucide-react";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 type AuthFormProps = {
@@ -45,7 +45,6 @@ export function AuthForm({ mode, prefillEmail, prefillPassword }: AuthFormProps)
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) {
-          // Detect "no account" type errors
           const msg = error.message.toLowerCase();
           if (msg.includes("invalid login") || msg.includes("invalid credentials") || msg.includes("user not found")) {
             setNoAccountBanner(true);
@@ -66,64 +65,80 @@ export function AuthForm({ mode, prefillEmail, prefillPassword }: AuthFormProps)
   }
 
   return (
-    <Card className="w-full max-w-sm glass-card gradient-border-card rounded-2xl animate-scale-in">
-      <CardHeader className="text-center">
-        <div className="mx-auto mb-2">
-          <span className="text-2xl font-heading font-bold gradient-text-animated">lieblings</span>
+    <div className="w-full max-w-sm rounded-2xl border mkt-card-border mkt-bg-card backdrop-blur-xl p-6 shadow-2xl animate-scale-in">
+      {/* Logo */}
+      <div className="text-center mb-6">
+        <div className="mx-auto h-12 w-12 rounded-xl flex items-center justify-center shadow-lg mb-3"
+          style={{ background: "linear-gradient(135deg, #fbbf24, #f43f5e)" }}>
+          <Sparkles className="h-6 w-6 text-white" />
         </div>
-        <CardTitle className="text-lg font-heading">{isSignup ? "Create an account" : "Welcome back"}</CardTitle>
-        <CardDescription>
+        <span className="text-2xl font-heading font-bold bg-gradient-to-r from-amber-300 via-rose-400 to-pink-400 bg-clip-text text-transparent">
+          lieblings
+        </span>
+        <p className="text-sm font-medium mkt-text mt-2">
+          {isSignup ? "Create an account" : "Welcome back"}
+        </p>
+        <p className="text-xs mkt-text-muted mt-0.5">
           {isSignup ? "Sign up to start building your wishlists." : "Log in to your Lieblings account."}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {/* No-account banner for login mode */}
-        {noAccountBanner && !isSignup && (
-          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800/50 p-3 animate-in fade-in-50 slide-in-from-top-2 duration-300">
-            <p className="text-xs font-medium text-amber-800 dark:text-amber-200">
-              No account found with that email.
-            </p>
-            <p className="text-[11px] text-amber-700/80 dark:text-amber-300/70 mt-0.5">
-              Would you like to sign up instead? Your details will carry over.
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-2 h-6 text-[11px] border-amber-300 text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-900/50"
-              asChild
-            >
-              <Link href={`/signup?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`}>
-                Sign up with these details →
-              </Link>
-            </Button>
+        </p>
+      </div>
+
+      {/* No-account banner */}
+      {noAccountBanner && !isSignup && (
+        <div className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 animate-in fade-in-50 slide-in-from-top-2 duration-300">
+          <p className="text-xs font-medium text-amber-300">No account found with that email.</p>
+          <p className="text-[11px] mkt-text-muted mt-0.5">Would you like to sign up instead?</p>
+          <Button variant="outline" size="sm" className="mt-2 h-6 text-[11px] border-amber-500/30 text-amber-300 hover:bg-amber-500/10 rounded-lg" asChild>
+            <Link href={`/signup?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`}>
+              Sign up with these details →
+            </Link>
+          </Button>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        {isSignup && (
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="displayName" className="text-xs mkt-text-muted">Name</Label>
+            <Input
+              id="displayName" type="text" placeholder="Your name"
+              value={displayName} onChange={(e) => setDisplayName(e.target.value)}
+              required
+              className="rounded-xl border mkt-card-border mkt-bg-subtle mkt-text placeholder:mkt-text-faint focus-visible:border-amber-500/40 focus-visible:ring-amber-500/20"
+            />
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {isSignup && (
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="displayName">Name</Label>
-              <Input id="displayName" type="text" placeholder="Your name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required className="rounded-xl" />
-            </div>
-          )}
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="email" className="text-xs mkt-text-muted">Email</Label>
+          <Input
+            id="email" type="email" placeholder="you@example.com"
+            value={email} onChange={(e) => { setEmail(e.target.value); setNoAccountBanner(false); }}
+            required
+            className="rounded-xl border mkt-card-border mkt-bg-subtle mkt-text placeholder:mkt-text-faint focus-visible:border-amber-500/40 focus-visible:ring-amber-500/20"
+          />
+        </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => { setEmail(e.target.value); setNoAccountBanner(false); }} required className="rounded-xl" />
-          </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="password" className="text-xs mkt-text-muted">Password</Label>
+          <Input
+            id="password" type="password" placeholder="••••••••"
+            value={password} onChange={(e) => { setPassword(e.target.value); setNoAccountBanner(false); }}
+            required minLength={6}
+            className="rounded-xl border mkt-card-border mkt-bg-subtle mkt-text placeholder:mkt-text-faint focus-visible:border-amber-500/40 focus-visible:ring-amber-500/20"
+          />
+        </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="password">Password</Label>
-            <Input id="password" type="password" placeholder="••••••••" value={password} onChange={(e) => { setPassword(e.target.value); setNoAccountBanner(false); }} required minLength={6} className="rounded-xl" />
-          </div>
-
-          <Button type="submit" disabled={loading} className="mt-2 btn-gradient rounded-xl shadow-lg">
-            {loading
-              ? isSignup ? "Creating account..." : "Logging in..."
-              : isSignup ? "Sign up" : "Log in"}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+        <Button
+          type="submit" disabled={loading}
+          className="mt-2 rounded-xl shadow-lg shadow-amber-500/20 hover:shadow-amber-500/40 font-semibold text-black transition-all hover:scale-[1.02]"
+          style={{ background: "linear-gradient(135deg, #fbbf24, #fb923c, #f43f5e)" }}
+        >
+          {loading
+            ? isSignup ? "Creating account..." : "Logging in..."
+            : isSignup ? "Sign up" : "Log in"}
+        </Button>
+      </form>
+    </div>
   );
 }
