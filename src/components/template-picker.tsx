@@ -59,7 +59,7 @@ export function TemplatePicker({
         .single();
       if (colErr) throw colErr;
 
-      toast.success(`"${template.name}" collection created with ${template.items.length} items.`);
+      toast.success(`"${template.name}" collection created!`);
       setSelected(null);
       onOpenChange(false); // Close this dialog
       onCreated?.();

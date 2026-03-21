@@ -70,33 +70,6 @@ export default async function proxy(request: NextRequest) {
 
   // Not logged in + trying to access app → redirect to login
   if (!user && !isPublicPage) {
-    const { data: profile } = await supabase
-      .from("users")
-      .select("id")
-      .eq("id", user.id)
-      .single();
-
-    if (!profile) {
-      // Stale session — sign out and redirect
-      await supabase.auth.signOut();
-      const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      const redirectResponse = NextResponse.redirect(url);
-      // Clear cookies
-      request.cookies.getAll().forEach((cookie) => {
-        if (cookie.name.startsWith("sb-")) {
-          redirectResponse.cookies.set(cookie.name, "", {
-            expires: new Date(0),
-            path: "/",
-          });
-        }
-      });
-      return redirectResponse;
-    }
-  }
-
-  // Not logged in + trying to access app → redirect to login
-  if (!user && !isPublicPage) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

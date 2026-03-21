@@ -23,11 +23,18 @@ const DEFAULT_WISHLISTS = [
   { id: "My Birthday", label: "Birthday", icon: "🎂", banner: "https://images.unsplash.com/photo-1558636508-e0db3814bd1d?w=800&h=400&fit=crop&q=80" },
   { id: "Christmas", label: "Christmas", icon: "🎄", banner: "https://images.unsplash.com/photo-1512389142860-9c449e58a814?w=800&h=400&fit=crop&q=80" },
   { id: "Valentine's Day", label: "Valentine's Day", icon: "💝", banner: "https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=800&h=400&fit=crop&q=80" },
-  { id: "Easter", label: "Easter", icon: "🐣", banner: "https://images.unsplash.com/photo-1457301353672-324d6d14f471?w=800&h=400&fit=crop&q=80" },
-  { id: "Eid", label: "Eid", icon: "🌙", banner: "https://images.unsplash.com/photo-1590076082261-3060ee5c4843?w=800&h=400&fit=crop&q=80" },
+  { id: "Easter", label: "Easter", icon: "🐣", banner: "https://images.unsplash.com/photo-1521967906867-14ec9d64bee8?w=800&h=400&fit=crop&q=80" },
+  { id: "Mother's Day", label: "Mother's Day", icon: "💐", banner: "https://images.unsplash.com/photo-1490750967868-88aa4f44baee?w=800&h=400&fit=crop&q=80" },
+  { id: "Father's Day", label: "Father's Day", icon: "👔", banner: "https://images.unsplash.com/photo-1542652694-40abf526446e?w=800&h=400&fit=crop&q=80" },
+  { id: "Anniversary", label: "Anniversary", icon: "🥂", banner: "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?w=800&h=400&fit=crop&q=80" },
+  { id: "Halloween", label: "Halloween", icon: "🎃", banner: "https://images.unsplash.com/photo-1509557965875-b88c97052f0e?w=800&h=400&fit=crop&q=80" },
+  { id: "Eid", label: "Eid", icon: "🌙", banner: "https://images.unsplash.com/photo-1564121211835-e88c852648ab?w=800&h=400&fit=crop&q=80" },
   { id: "Hanukkah", label: "Hanukkah", icon: "🕎", banner: "https://images.unsplash.com/photo-1576150542498-8ad43e9dd691?w=800&h=400&fit=crop&q=80" },
-  { id: "Diwali", label: "Diwali", icon: "🪔", banner: "https://images.unsplash.com/photo-1605810230434-7631ac76ec81?w=800&h=400&fit=crop&q=80" },
+  { id: "Diwali", label: "Diwali", icon: "🪔", banner: "https://images.unsplash.com/photo-1574265935509-1e5d1e4ce5af?w=800&h=400&fit=crop&q=80" },
   { id: "Lunar New Year", label: "Lunar New Year", icon: "🧧", banner: "https://images.unsplash.com/photo-1548263594-a71f05f4f3cb?w=800&h=400&fit=crop&q=80" },
+  { id: "New Year", label: "New Year", icon: "🎆", banner: "https://images.unsplash.com/photo-1467810563316-b5476525c0f9?w=800&h=400&fit=crop&q=80" },
+  { id: "Back to School", label: "Back to School", icon: "📚", banner: "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&h=400&fit=crop&q=80" },
+  { id: "Thanksgiving", label: "Thanksgiving", icon: "🦃", banner: "https://images.unsplash.com/photo-1474564862106-1f23d10b9d72?w=800&h=400&fit=crop&q=80" },
 ];
 
 export default function OnboardingPage() {
