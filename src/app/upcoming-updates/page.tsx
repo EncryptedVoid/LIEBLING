@@ -9,21 +9,20 @@ import {
   ChefHat, Baby, Flame, Bookmark, Star, Megaphone,
 } from "lucide-react";
 import { MarketingNav, MarketingFooter } from "@/components/marketing-nav";
+import { createClient } from "@/lib/supabase/client";
+import { motion } from "motion/react";
 
 function Reveal({ children, className = "", delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [v, setV] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setV(true); obs.disconnect(); } }, { threshold: 0.15 });
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
   return (
-    <div ref={ref} className={`transition-all duration-700 ease-out ${v ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"} ${className}`} style={{ transitionDelay: `${delay}ms` }}>
+    <motion.div
+      initial={{ opacity: 0, y: 30 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-50px" }}
+      transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: delay / 1000 }}
+      className={className}
+    >
       {children}
-    </div>
+    </motion.div>
   );
 }
 
@@ -99,6 +98,97 @@ const STATUS_CONFIG: Record<UpdateStatus, { label: string; color: string; dotCol
 export default function UpcomingUpdatesPage() {
   const [selectedId, setSelectedId] = useState(UPDATES[0].id);
   const [votes, setVotes] = useState<Record<string, "up" | "down" | null>>({});
+  const [voteCounts, setVoteCounts] = useState<Record<string, { up: number; down: number }>>({});
+  const [visitorId, setVisitorId] = useState("");
+  const supabase = createClient();
+
+  // Generate or retrieve a persistent visitor ID
+  useEffect(() => {
+    let id = document.cookie
+      .split("; ")
+      .find((c) => c.startsWith("lieblings_visitor="))
+      ?.split("=")[1];
+    if (!id) {
+      id = crypto.randomUUID();
+      document.cookie = `lieblings_visitor=${id}; max-age=${60 * 60 * 24 * 365}; path=/; SameSite=Lax`;
+    }
+    setVisitorId(id);
+  }, []);
+
+  // Load existing votes and counts
+  useEffect(() => {
+    if (!visitorId) return;
+    async function loadVotes() {
+      // Load this visitor's votes
+      const { data: myVotes } = await supabase
+        .from("feature_votes")
+        .select("feature_id, vote")
+        .eq("visitor_id", visitorId);
+
+      if (myVotes) {
+        const map: Record<string, "up" | "down" | null> = {};
+        myVotes.forEach((v: any) => { map[v.feature_id] = v.vote; });
+        setVotes(map);
+      }
+
+      // Load counts for all features
+      const { data: allVotes } = await supabase
+        .from("feature_votes")
+        .select("feature_id, vote");
+
+      if (allVotes) {
+        const counts: Record<string, { up: number; down: number }> = {};
+        allVotes.forEach((v: any) => {
+          if (!counts[v.feature_id]) counts[v.feature_id] = { up: 0, down: 0 };
+          counts[v.feature_id][v.vote as "up" | "down"]++;
+        });
+        setVoteCounts(counts);
+      }
+    }
+    loadVotes();
+  }, [visitorId]);
+
+  async function handleVote(id: string, dir: "up" | "down") {
+    if (!visitorId) return;
+    const currentVote = votes[id];
+
+    if (currentVote === dir) {
+      // Remove vote (toggle off)
+      setVotes((prev) => ({ ...prev, [id]: null }));
+      setVoteCounts((prev) => ({
+        ...prev,
+        [id]: { ...prev[id], [dir]: (prev[id]?.[dir] ?? 1) - 1 },
+      }));
+      await supabase
+        .from("feature_votes")
+        .delete()
+        .eq("feature_id", id)
+        .eq("visitor_id", visitorId);
+    } else {
+      // Set or change vote
+      setVotes((prev) => ({ ...prev, [id]: dir }));
+      setVoteCounts((prev) => {
+        const current = prev[id] ?? { up: 0, down: 0 };
+        const updated = { ...current, [dir]: current[dir] + 1 };
+        if (currentVote) updated[currentVote] = Math.max(0, updated[currentVote] - 1);
+        return { ...prev, [id]: updated };
+      });
+
+      if (currentVote) {
+        // Update existing vote
+        await supabase
+          .from("feature_votes")
+          .update({ vote: dir })
+          .eq("feature_id", id)
+          .eq("visitor_id", visitorId);
+      } else {
+        // Insert new vote
+        await supabase
+          .from("feature_votes")
+          .insert({ feature_id: id, vote: dir, visitor_id: visitorId });
+      }
+    }
+  }
 
   useEffect(() => {
     if (!document.documentElement.getAttribute("data-marketing-theme")) {
@@ -107,10 +197,6 @@ export default function UpcomingUpdatesPage() {
   }, []);
 
   const selected = UPDATES.find((u) => u.id === selectedId)!;
-
-  function handleVote(id: string, dir: "up" | "down") {
-    setVotes((prev) => ({ ...prev, [id]: prev[id] === dir ? null : dir }));
-  }
 
   return (
     <div className="flex flex-col min-h-screen bg-[#0a0a0a] mkt-text selection:bg-amber-400/30">
@@ -201,7 +287,11 @@ export default function UpcomingUpdatesPage() {
                     }`}
                   >
                     <ThumbsUp className="h-4 w-4" />
+                    {/* Find the thumbs up button and add count */}
                     <span className="text-xs font-semibold">Yes, build this!</span>
+                    {(voteCounts[selected.id]?.up ?? 0) > 0 && (
+                      <span className="text-[10px] opacity-70 ml-1">({voteCounts[selected.id]?.up})</span>
+                    )}
                   </button>
                   <button
                     onClick={() => handleVote(selected.id, "down")}
@@ -213,6 +303,9 @@ export default function UpcomingUpdatesPage() {
                   >
                     <ThumbsDown className="h-4 w-4" />
                     <span className="text-xs font-semibold">Not a priority</span>
+                    {(voteCounts[selected.id]?.down ?? 0) > 0 && (
+                      <span className="text-[10px] opacity-70 ml-1">({voteCounts[selected.id]?.down})</span>
+                    )}
                   </button>
                 </div>
               </div>

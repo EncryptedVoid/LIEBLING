@@ -8,21 +8,21 @@ import {
   TrendingDown, Frown, CalendarX, HelpCircle, DollarSign, Repeat,
   CheckCircle2, Zap, Globe, PartyPopper,
 } from "lucide-react";
+
 import { MarketingNav, MarketingFooter } from "@/components/marketing-nav";
+import { motion } from "motion/react";
+
 function Reveal({ children, className = "", delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [v, setV] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setV(true); obs.disconnect(); } }, { threshold: 0.15 });
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
   return (
-    <div ref={ref} className={`transition-all duration-700 ease-out ${v ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"} ${className}`} style={{ transitionDelay: `${delay}ms` }}>
+    <motion.div
+      initial={{ opacity: 0, y: 30 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-50px" }}
+      transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: delay / 1000 }}
+      className={className}
+    >
       {children}
-    </div>
+    </motion.div>
   );
 }
 

@@ -6,7 +6,7 @@ import { format } from "date-fns";
 import { createClient } from "@/lib/supabase/client";
 import { THEME_COLORS } from "@/lib/theme-colors";
 import { Check, Sun, Moon, Clock } from "lucide-react";
-
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,6 +37,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { AvatarUpload } from "@/components/avatar-upload";
 import { toast } from "sonner";
+import { MfaEnrollment } from "@/components/mfa-enrollment";
+import { MfaChallenge, checkMfaEnrolled } from "@/components/mfa-challenge";
+import { ShieldCheck } from "lucide-react";
 
 export default function SettingsPage() {
   const supabase = createClient();
@@ -51,6 +54,13 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingAppearance, setSavingAppearance] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [mfaEnrolled, setMfaEnrolled] = useState(false);
+  const [mfaChallengeOpen, setMfaChallengeOpen] = useState(false);
+  const [showMfaSetup, setShowMfaSetup] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -70,9 +80,34 @@ export default function SettingsPage() {
         setTimeFormat(data.time_format || "12h");
       }
       setLoading(false);
+      // Check MFA status
+      const enrolled = await checkMfaEnrolled();
+      setMfaEnrolled(enrolled);
     }
     load();
   }, []);
+
+  async function handleChangePassword() {
+    if (newPassword !== confirmNewPassword) {
+      toast.error("Passwords don't match.");
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error("Password must be at least 6 characters.");
+      return;
+    }
+    setSavingPassword(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Password updated!");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmNewPassword("");
+    }
+    setSavingPassword(false);
+  }
 
   async function handleSaveProfile() {
     setSavingProfile(true);
@@ -97,6 +132,15 @@ export default function SettingsPage() {
   }
 
   async function handleDeleteAccount() {
+    if (mfaEnrolled) {
+      // Require MFA verification first
+      setMfaChallengeOpen(true);
+      return;
+    }
+    performDeleteAccount();
+  }
+
+  async function performDeleteAccount() {
     await supabase.auth.signOut();
     await fetch("/api/auth/signout", { method: "POST" }).catch(() => {});
     window.location.href = "/";
@@ -259,6 +303,93 @@ export default function SettingsPage() {
 
       <Separator className="my-8" />
 
+      {/* Password Change */}
+      <Card className="glass-card rounded-2xl md:col-span-2">
+        <CardHeader>
+          <CardTitle className="text-sm">Change Password</CardTitle>
+          <CardDescription>Update your account password.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4 max-w-sm">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="newPw">New Password</Label>
+            <Input id="newPw" type="password" placeholder="••••••••" minLength={6}
+              value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="confirmPw">Confirm New Password</Label>
+            <Input id="confirmPw" type="password" placeholder="••••••••" minLength={6}
+              value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} />
+          </div>
+          <Button onClick={handleChangePassword} disabled={savingPassword || !newPassword || !confirmNewPassword}
+            className="btn-gradient rounded-xl shadow-lg w-fit">
+            {savingPassword ? "Updating..." : "Update password"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Separator className="my-8" />
+
+      {/* MFA */}
+      <Card className="glass-card rounded-2xl md:col-span-2">
+        <CardHeader>
+          <CardTitle className="text-sm flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4" />
+            Two-Factor Authentication
+          </CardTitle>
+          <CardDescription>
+            {mfaEnrolled
+              ? "Your account is protected with an authenticator app."
+              : "Add an extra layer of security to your account."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {mfaEnrolled ? (
+            <div className="flex items-center gap-3">
+              <Badge variant="outline" className="gap-1.5 text-green-600 border-green-500/30">
+                <ShieldCheck className="h-3 w-3" /> MFA Active
+              </Badge>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-destructive hover:bg-destructive/10"
+                onClick={async () => {
+                  const supabase = createClient();
+                  const { data } = await supabase.auth.mfa.listFactors();
+                  const factor = data?.totp?.find((f) => f.status === "verified");
+                  if (factor) {
+                    const { error } = await supabase.auth.mfa.unenroll({ factorId: factor.id });
+                    if (error) {
+                      toast.error(error.message);
+                    } else {
+                      setMfaEnrolled(false);
+                      toast.success("MFA disabled.");
+                    }
+                  }
+                }}
+              >
+                Disable MFA
+              </Button>
+            </div>
+          ) : showMfaSetup ? (
+            <MfaEnrollment
+              variant="inline"
+              showSkip
+              onSkip={() => setShowMfaSetup(false)}
+              onComplete={() => {
+                setMfaEnrolled(true);
+                setShowMfaSetup(false);
+              }}
+            />
+          ) : (
+            <Button onClick={() => setShowMfaSetup(true)} className="btn-gradient rounded-xl shadow-lg">
+              Enable MFA
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+
+      <Separator className="my-8" />
+
       {/* Danger zone */}
       <Card className="border-destructive/30 glass-card rounded-2xl">
         <CardHeader>
@@ -284,6 +415,14 @@ export default function SettingsPage() {
           </AlertDialog>
         </CardContent>
       </Card>
+
+      <MfaChallenge
+        open={mfaChallengeOpen}
+        onOpenChange={setMfaChallengeOpen}
+        onVerified={performDeleteAccount}
+        title="Confirm account deletion"
+        description="Enter your authenticator code to confirm you want to delete your account."
+      />
     </div>
   );
 }

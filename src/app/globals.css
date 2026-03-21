@@ -596,18 +596,70 @@
   scrollbar-width: none;
 }
 
+/* Thin scrollbar for inner containers */
 .scrollbar-thin::-webkit-scrollbar {
-  width: 4px;
+  width: 6px;
 }
 .scrollbar-thin::-webkit-scrollbar-track {
   background: transparent;
 }
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: linear-gradient(180deg, var(--gradient-from), var(--gradient-to));
   border-radius: 100px;
+  opacity: 0.6;
 }
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background: var(--muted-foreground);
+  background: linear-gradient(
+    180deg,
+    var(--gradient-to),
+    var(--gradient-accent)
+  );
+}
+
+/* Main page scrollbar — app pages */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--gradient-from), var(--gradient-to));
+  border-radius: 100px;
+  border: 2px solid var(--background);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    180deg,
+    var(--gradient-to),
+    var(--gradient-accent)
+  );
+}
+
+/* Main page scrollbar — marketing dark */
+[data-marketing-theme="dark"] ::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+[data-marketing-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #fbbf24, #f43f5e);
+  border: 2px solid #0a0a0a;
+  border-radius: 100px;
+}
+
+/* Main page scrollbar — marketing light */
+[data-marketing-theme="light"] ::-webkit-scrollbar-track {
+  background: #fefcf9;
+}
+[data-marketing-theme="light"] ::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #fbbf24, #f43f5e);
+  border: 2px solid #fefcf9;
+  border-radius: 100px;
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--gradient-from) transparent;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -836,4 +888,16 @@
 }
 [data-marketing-theme="dark"] .mkt-text-strike {
   color: rgba(255, 255, 255, 0.3);
+}
+
+/* ═══════════════════════════════════════════════════
+   GIFT CURSOR (marketing pages only)
+   Resets automatically on app pages since they
+   don't have the data-marketing-theme attribute.
+   ═══════════════════════════════════════════════════ */
+[data-marketing-theme] {
+  cursor:
+    url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32'><text y='28' font-size='28'>🎁</text></svg>")
+      4 4,
+    auto;
 }

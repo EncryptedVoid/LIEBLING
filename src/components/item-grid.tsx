@@ -2,6 +2,8 @@ import { SkeletonCard, SkeletonRow } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
 import type { Item } from "@/lib/types";
 import { ItemCard } from "@/components/item-card";
+import { motion, AnimatePresence } from "motion/react";
+import { listItem } from "@/lib/motion-variants";
 
 type ItemGridProps =
   | {
@@ -94,29 +96,38 @@ export function ItemGrid(props: ItemGridProps) {
   }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 stagger-grid">
-      {items.map((item) =>
-        variant === "owner" ? (
-          <ItemCard
+    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+      <AnimatePresence mode="popLayout">
+        {items.map((item) => (
+          <motion.div
             key={item.id}
-            item={item}
-            variant="owner"
-            viewMode="grid"
-            onDelete={props.onDelete}
-            onEdit={props.onEdit}
-            onGiftedToggle={props.onGiftedToggle}
-          />
-        ) : (
-          <ItemCard
-            key={item.id}
-            item={item}
-            variant="friend"
-            viewMode="grid"
-            currentUserId={props.currentUserId}
-            onClaimChange={props.onClaimChange}
-          />
-        )
-      )}
+            variants={listItem}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            layout
+          >
+            {variant === "owner" ? (
+              <ItemCard
+                item={item}
+                variant="owner"
+                viewMode="grid"
+                onDelete={props.onDelete}
+                onEdit={props.onEdit}
+                onGiftedToggle={props.onGiftedToggle}
+              />
+            ) : (
+              <ItemCard
+                item={item}
+                variant="friend"
+                viewMode="grid"
+                currentUserId={props.currentUserId}
+                onClaimChange={props.onClaimChange}
+              />
+            )}
+          </motion.div>
+        ))}
+      </AnimatePresence>
     </div>
   );
 }

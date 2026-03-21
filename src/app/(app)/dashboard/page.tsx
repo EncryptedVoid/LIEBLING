@@ -21,7 +21,8 @@ import { BirthdayCountdownSection } from "@/components/birthday-countdown-sectio
 import { GiftToBuyCard } from "@/components/gift-to-buy-card";
 import { GiftsToBuyModal } from "@/components/gifts-to-buy-modal";
 import { toast } from "sonner";
-
+import { motion } from "motion/react";
+import { staggerContainer, staggerItem } from "@/lib/motion-variants";
 import type { User, Item, Event } from "@/lib/types";
 
 type ClaimedItem = Item & { owner?: User };
@@ -171,162 +172,174 @@ export default function DashboardPage() {
       </div>
 
       {/* 3-column layout — forced equal height */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 stagger-grid" style={{ gridAutoRows: '550px' }}>
+      <motion.div
+        className="grid grid-cols-1 lg:grid-cols-3 gap-6"
+        style={{ gridAutoRows: '550px' }}
+        variants={staggerContainer}
+        initial="initial"
+        animate="animate"
+      >
         {/* Birthday Countdowns */}
-        <div className="flex flex-col h-full">
-          <BirthdayCountdownSection currentUser={user} friends={friends} />
-        </div>
+        <motion.div variants={staggerItem} className="flex flex-col h-full">
+          <div className="flex flex-col h-full">
+            <BirthdayCountdownSection currentUser={user} friends={friends} />
+          </div>
+        </motion.div>
 
         {/* Upcoming Events */}
-        <Card className="glass-card gradient-border-card flex flex-col h-[400px] rounded-2xl">
-          <CardHeader className="pb-2 shrink-0">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <div className="p-1.5 rounded-lg" style={{ background: 'linear-gradient(135deg, var(--gradient-from), var(--gradient-to))' }}>
-                  <CalendarDays className="h-3.5 w-3.5 text-primary-foreground" />
-                </div>
-                Upcoming Events
-                <Badge variant="secondary" className="text-[10px] font-mono">{upcomingEvents.length}</Badge>
-              </CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="flex-1 overflow-hidden flex flex-col pt-2">
-            {upcomingEvents.length === 0 ? (
-              <EmptyState
-                variant="events"
-                title="No upcoming events"
-                description="Create an event to get started."
-                className="py-6"
-              >
-                <Button variant="outline" size="sm" asChild>
-                  <Link href="/events/new">Create event</Link>
-                </Button>
-              </EmptyState>
-            ) : (
-              <div 
-                className="overflow-hidden flex-1 relative"
-                style={{
-                  maskImage: upcomingEvents.length > 3 ? 'linear-gradient(to bottom, black 50%, transparent 100%)' : 'none',
-                  WebkitMaskImage: upcomingEvents.length > 3 ? 'linear-gradient(to bottom, black 50%, transparent 100%)' : 'none'
-                }}
-              >
-                <div className="space-y-2">
-                  {upcomingEvents.slice(0, 3).map((event) => (
-                    <Link
-                      key={event.id}
-                      href={`/events/${event.id}`}
-                      className="flex items-center gap-3 rounded-xl p-2.5 hover:bg-primary/5 transition-all duration-300 group hover:shadow-md hover:shadow-primary/5"
-                    >
-                      <div className="h-10 w-10 rounded-xl flex flex-col items-center justify-center shrink-0 transition-all duration-300 group-hover:scale-105" style={{ background: 'linear-gradient(135deg, var(--gradient-from), var(--gradient-to))', color: 'var(--primary-foreground)' }}>
-                        <span className="text-[8px] font-medium uppercase leading-none">
-                          {format(new Date(event.date), "MMM")}
-                        </span>
-                        <span className="text-sm font-bold leading-tight">
-                          {format(new Date(event.date), "d")}
-                        </span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium truncate group-hover:text-primary transition-colors">
-                          {event.title}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground">
-                          {format(new Date(event.date), "EEE, MMM d")}
-                          {event.owner && event.user_id !== user?.id && (
-                            <span> · {event.owner.display_name}</span>
-                          )}
-                        </p>
-                      </div>
-                      <Badge
-                        variant={event.daysAway <= 7 ? "default" : "secondary"}
-                        className="shrink-0 text-[10px] shadow-sm"
-                      >
-                        {event.daysAway === 0
-                          ? "Today"
-                          : event.daysAway === 1
-                          ? "Tomorrow"
-                          : `${event.daysAway}d`}
-                      </Badge>
-                    </Link>
-                  ))}
-                  
-                  {/* Padding to push down content so mask doesn't hide last item fully */}
-                  {upcomingEvents.length > 3 && <div className="h-8" />}
-                </div>
+        <motion.div variants={staggerItem} className="flex flex-col h-full">
+          <Card className="glass-card gradient-border-card flex flex-col  rounded-2xl">
+            <CardHeader className="pb-2 shrink-0">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg" style={{ background: 'linear-gradient(135deg, var(--gradient-from), var(--gradient-to))' }}>
+                    <CalendarDays className="h-3.5 w-3.5 text-primary-foreground" />
+                  </div>
+                  Upcoming Events
+                  <Badge variant="secondary" className="text-[10px] font-mono">{upcomingEvents.length}</Badge>
+                </CardTitle>
               </div>
-            )}
-            {upcomingEvents.length > 0 && (
-              <Button variant="outline" className="w-full mt-4 shrink-0 transition-all active:scale-95 hover:bg-primary/5 hover:border-primary/30 hover:shadow-md hover:shadow-primary/10 rounded-xl" asChild>
-                <Link href="/events?tab=friends&sort=date-asc">View all events</Link>
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Gifts to Buy */}
-        <Card className="glass-card gradient-border-card flex flex-col h-[400px] rounded-2xl">
-          <CardHeader className="pb-2 shrink-0">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <div className="p-1.5 rounded-lg" style={{ background: 'linear-gradient(135deg, var(--gradient-to), var(--gradient-accent))' }}>
-                <Gift className="h-3.5 w-3.5 text-primary-foreground" />
-              </div>
-              Gifts to Buy
-              {unboughtCount > 0 && (
-                <Badge className="text-[10px] font-mono btn-gradient border-0">
-                  {unboughtCount} to buy
-                </Badge>
-              )}
-              {boughtCount > 0 && (
-                <Badge variant="secondary" className="text-[10px] font-mono">
-                  {boughtCount} bought
-                </Badge>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex-1 overflow-hidden flex flex-col pt-2">
-            {sortedClaimedItems.length === 0 ? (
-              <EmptyState
-                variant="gifts"
-                title="No gifts to buy yet"
-                description="Browse your friends' wishlists to claim gifts."
-                className="py-6"
-              >
-                <Button variant="outline" size="sm" asChild>
-                  <Link href="/wishlist">Go to wishlists</Link>
-                </Button>
-              </EmptyState>
-            ) : (
-              <>
+            </CardHeader>
+            <CardContent className="flex-1 overflow-hidden flex flex-col pt-2">
+              {upcomingEvents.length === 0 ? (
+                <EmptyState
+                  variant="events"
+                  title="No upcoming events"
+                  description="Create an event to get started."
+                  className="py-6"
+                >
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href="/events/new">Create event</Link>
+                  </Button>
+                </EmptyState>
+              ) : (
                 <div 
-                  className="flex-1 overflow-hidden relative"
+                  className="overflow-hidden flex-1 relative"
                   style={{
-                    maskImage: sortedClaimedItems.length > 3 ? 'linear-gradient(to bottom, black 55%, transparent 100%)' : 'none',
-                    WebkitMaskImage: sortedClaimedItems.length > 3 ? 'linear-gradient(to bottom, black 55%, transparent 100%)' : 'none'
+                    maskImage: upcomingEvents.length > 3 ? 'linear-gradient(to bottom, black 50%, transparent 100%)' : 'none',
+                    WebkitMaskImage: upcomingEvents.length > 3 ? 'linear-gradient(to bottom, black 50%, transparent 100%)' : 'none'
                   }}
                 >
-                  <div className="grid grid-cols-1 gap-2 pb-6">
-                    {sortedClaimedItems.slice(0, 3).map((item) => (
-                      <GiftToBuyCard
-                        key={item.id}
-                        item={item}
-                        onUpdate={fetchDashboard}
-                      />
+                  <div className="space-y-2">
+                    {upcomingEvents.slice(0, 3).map((event) => (
+                      <Link
+                        key={event.id}
+                        href={`/events/${event.id}`}
+                        className="flex items-center gap-3 rounded-xl p-2.5 hover:bg-primary/5 transition-all duration-300 group hover:shadow-md hover:shadow-primary/5"
+                      >
+                        <div className="h-10 w-10 rounded-xl flex flex-col items-center justify-center shrink-0 transition-all duration-300 group-hover:scale-105" style={{ background: 'linear-gradient(135deg, var(--gradient-from), var(--gradient-to))', color: 'var(--primary-foreground)' }}>
+                          <span className="text-[8px] font-medium uppercase leading-none">
+                            {format(new Date(event.date), "MMM")}
+                          </span>
+                          <span className="text-sm font-bold leading-tight">
+                            {format(new Date(event.date), "d")}
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium truncate group-hover:text-primary transition-colors">
+                            {event.title}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {format(new Date(event.date), "EEE, MMM d")}
+                            {event.owner && event.user_id !== user?.id && (
+                              <span> · {event.owner.display_name}</span>
+                            )}
+                          </p>
+                        </div>
+                        <Badge
+                          variant={event.daysAway <= 7 ? "default" : "secondary"}
+                          className="shrink-0 text-[10px] shadow-sm"
+                        >
+                          {event.daysAway === 0
+                            ? "Today"
+                            : event.daysAway === 1
+                            ? "Tomorrow"
+                            : `${event.daysAway}d`}
+                        </Badge>
+                      </Link>
                     ))}
+
+                    {/* Padding to push down content so mask doesn't hide last item fully */}
+                    {upcomingEvents.length > 3 && <div className="h-8" />}
                   </div>
                 </div>
-                {sortedClaimedItems.length > 0 && (
-                  <Button 
-                    variant="outline" 
-                    className="w-full mt-4 shrink-0 transition-all active:scale-95 hover:bg-primary/5 hover:border-primary/30 hover:shadow-md hover:shadow-primary/10 rounded-xl"
-                    onClick={() => setGiftsModalOpen(true)}
-                  >
-                    View all items to buy
-                  </Button>
+              )}
+              {upcomingEvents.length > 0 && (
+                <Button variant="outline" className="w-full mt-4 shrink-0 transition-all active:scale-95 hover:bg-primary/5 hover:border-primary/30 hover:shadow-md hover:shadow-primary/10 rounded-xl" asChild>
+                  <Link href="/events?tab=friends&sort=date-asc">View all events</Link>
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Gifts to Buy */}
+        <motion.div variants={staggerItem} className="flex flex-col h-full">
+          <Card className="glass-card gradient-border-card flex flex-col rounded-2xl">
+            <CardHeader className="pb-2 shrink-0">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <div className="p-1.5 rounded-lg" style={{ background: 'linear-gradient(135deg, var(--gradient-to), var(--gradient-accent))' }}>
+                  <Gift className="h-3.5 w-3.5 text-primary-foreground" />
+                </div>
+                Gifts to Buy
+                {unboughtCount > 0 && (
+                  <Badge className="text-[10px] font-mono btn-gradient border-0">
+                    {unboughtCount} to buy
+                  </Badge>
                 )}
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                {boughtCount > 0 && (
+                  <Badge variant="secondary" className="text-[10px] font-mono">
+                    {boughtCount} bought
+                  </Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex-1 overflow-hidden flex flex-col pt-2">
+              {sortedClaimedItems.length === 0 ? (
+                <EmptyState
+                  variant="gifts"
+                  title="No gifts to buy yet"
+                  description="Browse your friends' wishlists to claim gifts."
+                  className="py-6"
+                >
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href="/wishlist">Go to wishlists</Link>
+                  </Button>
+                </EmptyState>
+              ) : (
+                <>
+                  <div
+                    className="flex-1 overflow-hidden relative"
+                    style={{
+                      maskImage: sortedClaimedItems.length > 3 ? 'linear-gradient(to bottom, black 55%, transparent 100%)' : 'none',
+                      WebkitMaskImage: sortedClaimedItems.length > 3 ? 'linear-gradient(to bottom, black 55%, transparent 100%)' : 'none'
+                    }}
+                  >
+                    <div className="grid grid-cols-1 gap-2 pb-6">
+                      {sortedClaimedItems.slice(0, 3).map((item) => (
+                        <GiftToBuyCard
+                          key={item.id}
+                          item={item}
+                          onUpdate={fetchDashboard}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  {sortedClaimedItems.length > 0 && (
+                    <Button
+                      variant="outline"
+                      className="w-full mt-4 shrink-0 transition-all active:scale-95 hover:bg-primary/5 hover:border-primary/30 hover:shadow-md hover:shadow-primary/10 rounded-xl"
+                      onClick={() => setGiftsModalOpen(true)}
+                    >
+                      View all items to buy
+                    </Button>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      </motion.div>
 
       <GiftsToBuyModal 
         isOpen={giftsModalOpen} 

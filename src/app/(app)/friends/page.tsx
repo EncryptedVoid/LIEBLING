@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { UserPlus, Check, X, Copy, Trash2, Users, Plus, QrCode, Search } from "lucide-react";
 import { format } from "date-fns";
-
+import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -211,15 +211,15 @@ export default function FriendsPage() {
   const outgoingReqs = requests.filter(r => !r.isIncoming);
 
   return (
-    <div className="page-enter max-w-5xl mx-auto space-y-8">
-      <div className="animate-fade-up">
+    <div className="page-enter max-w-5xl mx-auto flex flex-col h-[calc(100vh-4rem)] overflow-hidden">
+      <div className="animate-fade-up shrink-0">
         <h1 className="text-3xl font-heading font-bold tracking-tight">Friends</h1>
         <p className="text-muted-foreground mt-1 text-sm">Manage your friends, requests, and friend groups.</p>
       </div>
 
       {/* Friend code banner */}
       {currentUser && (
-        <Card className="glass-card gradient-border-card rounded-2xl animate-fade-up" style={{ animationDelay: '100ms' }}>
+        <Card className="glass-card gradient-border-card rounded-2xl animate-fade-up shrink-0 mt-6" style={{ animationDelay: '100ms' }}>
           <CardContent className="p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="h-14 w-14 rounded-2xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, var(--gradient-from), var(--gradient-to))', boxShadow: '0 4px 20px var(--glow)' }}>
@@ -242,212 +242,268 @@ export default function FriendsPage() {
         </Card>
       )}
 
-      <Tabs defaultValue="friends" className="w-full">
-        <TabsList className="mb-6 w-full sm:w-auto h-auto p-1 grid grid-cols-3 sm:inline-flex">
-          <TabsTrigger value="friends" className="py-2.5">My Friends ({friends.length})</TabsTrigger>
-          <TabsTrigger value="requests" className="py-2.5">
-            Requests {incomingReqs.length > 0 && <Badge className="ml-2 bg-primary px-1.5 h-5 text-[10px]">{incomingReqs.length}</Badge>}
-          </TabsTrigger>
-          <TabsTrigger value="groups" className="py-2.5">Groups</TabsTrigger>
-        </TabsList>
+      <div className="flex-1 overflow-y-auto scrollbar-thin mt-6">
+        <Tabs defaultValue="friends" className="w-full">
+          <TabsList className="mb-6 w-full sm:w-auto h-auto p-1 grid grid-cols-3 sm:inline-flex">
+            <TabsTrigger value="friends" className="py-2.5">My Friends ({friends.length})</TabsTrigger>
+            <TabsTrigger value="requests" className="py-2.5">
+              Requests {incomingReqs.length > 0 && <Badge className="ml-2 bg-primary px-1.5 h-5 text-[10px]">{incomingReqs.length}</Badge>}
+            </TabsTrigger>
+            <TabsTrigger value="groups" className="py-2.5">Groups</TabsTrigger>
+          </TabsList>
 
-        {/* ─── FRIENDS TAB: Side by side ─── */}
-        <TabsContent value="friends" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
-            {/* Left: Add friend */}
-            <Card className="glass-card rounded-2xl h-fit">
-              <CardHeader className="pb-3 border-b border-border/50">
-                <CardTitle className="text-base font-heading font-semibold">Add a friend</CardTitle>
-                <CardDescription className="text-xs">Enter their friend code to send a request.</CardDescription>
-              </CardHeader>
-              <CardContent className="pt-4 flex flex-col gap-3">
-                <Input placeholder="LIEB-XXXX-XXXX" value={codeInput} onChange={(e) => setCodeInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleAddByCode()} className="rounded-xl" />
-                <Button onClick={handleAddByCode} disabled={addingCode || !codeInput.trim()} className="w-full btn-gradient rounded-xl">
-                  {addingCode ? "Sending..." : "Send Request"}
-                </Button>
-              </CardContent>
-            </Card>
+          {/* ─── FRIENDS TAB: Side by side ─── */}
+          <TabsContent value="friends" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
+              {/* Left: Add friend */}
+              <Card className="glass-card rounded-2xl h-fit">
+                <CardHeader className="pb-3 border-b border-border/50">
+                  <CardTitle className="text-base font-heading font-semibold">Add a friend</CardTitle>
+                  <CardDescription className="text-xs">Enter their friend code to send a request.</CardDescription>
+                </CardHeader>
+                <CardContent className="pt-4 flex flex-col gap-3">
+                  <Input placeholder="LIEB-XXXX-XXXX" value={codeInput} onChange={(e) => setCodeInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleAddByCode()} className="rounded-xl" />
+                  <Button onClick={handleAddByCode} disabled={addingCode || !codeInput.trim()} className="w-full btn-gradient rounded-xl">
+                    {addingCode ? "Sending..." : "Send Request"}
+                  </Button>
+                </CardContent>
+              </Card>
 
-            {/* Right: Friends list */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-medium tracking-tight px-1">All Friends</h3>
-              {loading ? (
-                <p className="text-sm text-muted-foreground p-4">Loading friends...</p>
-              ) : friends.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 stagger-grid">
-                  {friends.map((friend) => (
-                    <Card key={friend.id} className="overflow-hidden glass-card rounded-2xl hover:-translate-y-1 transition-all duration-300">
-                      <CardContent className="p-4 flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <Avatar className="h-10 w-10 ring-2 ring-primary/20 shadow-sm">
-                            <AvatarImage src={friend.avatar_url ?? undefined} />
-                            <AvatarFallback className="text-xs font-semibold" style={{ background: 'linear-gradient(135deg, var(--gradient-from), var(--gradient-to))', color: 'var(--primary-foreground)' }}>{friend.display_name[0]?.toUpperCase()}</AvatarFallback>
-                          </Avatar>
-                          <div className="min-w-0 flex-1">
-                            <p className="font-heading font-semibold text-sm truncate">{friend.display_name}</p>
-                            <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-0.5">
-                              {friend.birthday ? `Born in ${format(new Date(friend.birthday), "MMMM")}` : "Friend"}
-                            </p>
+              {/* Right: Friends list */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-medium tracking-tight px-1">All Friends</h3>
+                {loading ? (
+                  <p className="text-sm text-muted-foreground p-4">Loading friends...</p>
+                ) : friends.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 stagger-grid">
+                    {friends.map((friend) => (
+                      <Card key={friend.id} className="overflow-hidden glass-card rounded-2xl hover:-translate-y-1 transition-all duration-300">
+                        <CardContent className="p-4 flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <Avatar className="h-10 w-10 ring-2 ring-primary/20 shadow-sm">
+                              <AvatarImage src={friend.avatar_url ?? undefined} />
+                              <AvatarFallback className="text-xs font-semibold" style={{ background: 'linear-gradient(135deg, var(--gradient-from), var(--gradient-to))', color: 'var(--primary-foreground)' }}>{friend.display_name[0]?.toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-heading font-semibold text-sm truncate">{friend.display_name}</p>
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-0.5">
+                                {friend.birthday ? `Born in ${format(new Date(friend.birthday), "MMMM")}` : "Friend"}
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                        <Button variant="ghost" size="icon" onClick={() => handleRemoveFriend(friend.id)} className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0 rounded-xl">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : (
-                <EmptyState variant="collections" title="No friends yet" description="Add someone using their friend code." />
-              )}
-            </div>
-          </div>
-        </TabsContent>
-
-        {/* ─── REQUESTS TAB: Side by side ─── */}
-        <TabsContent value="requests">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Left: Incoming */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-medium tracking-tight px-1">Incoming Requests</h3>
-              {incomingReqs.length > 0 ? (
-                <div className="space-y-3 stagger-grid">
-                  {incomingReqs.map((req) => (
-                    <Card key={req.id} className="glass-card rounded-2xl">
-                      <CardContent className="p-4 flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <Avatar className="h-10 w-10 border">
-                            <AvatarImage src={req.friend.avatar_url ?? undefined} />
-                            <AvatarFallback className="text-xs">{req.friend.display_name[0]?.toUpperCase()}</AvatarFallback>
-                          </Avatar>
-                          <div className="min-w-0">
-                            <p className="font-medium text-sm truncate">{req.friend.display_name}</p>
-                            <p className="text-[10px] text-muted-foreground">Wants to be friends</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Button variant="default" size="sm" onClick={() => handleAccept(req.id)}>Accept</Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleDenyOrRemove(req.id)} className="text-destructive hover:bg-destructive/10">Decline</Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : (
-                <div className="p-8 text-center bg-muted/30 rounded-lg border border-dashed">
-                  <p className="text-sm text-muted-foreground">No pending incoming requests.</p>
-                </div>
-              )}
-            </div>
-
-            {/* Right: Sent */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-medium tracking-tight px-1">Sent Requests</h3>
-              {outgoingReqs.length > 0 ? (
-                <div className="space-y-3 stagger-grid">
-                  {outgoingReqs.map((req) => (
-                    <div key={req.id} className="flex items-center justify-between p-3 rounded-xl border bg-background text-sm glass-card">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <Avatar className="h-6 w-6">
-                          <AvatarImage src={req.friend.avatar_url ?? undefined} />
-                          <AvatarFallback className="text-[10px]">{req.friend.display_name[0]?.toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                        <span className="truncate">{req.friend.display_name}</span>
-                      </div>
-                      <Badge variant="secondary" className="text-[10px]">Pending...</Badge>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="p-8 text-center bg-muted/30 rounded-lg border border-dashed">
-                  <p className="text-sm text-muted-foreground">No sent requests.</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </TabsContent>
-
-        {/* ─── GROUPS TAB (unchanged layout) ─── */}
-        <TabsContent value="groups" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card className="glass-card rounded-2xl h-fit">
-              <CardHeader className="pb-3 border-b border-border/50">
-                <CardTitle className="text-base font-heading font-semibold">Create a Group</CardTitle>
-                <CardDescription className="text-xs">Organize friends for easier sharing.</CardDescription>
-              </CardHeader>
-              <CardContent className="pt-4 flex gap-3">
-                <Input placeholder="Group name..." value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleCreateGroup()} className="flex-1 rounded-xl" />
-                <Button onClick={handleCreateGroup} disabled={creatingGroup || !newGroupName.trim()} className="btn-gradient rounded-xl px-6">
-                  {creatingGroup ? "..." : "Create"}
-                </Button>
-              </CardContent>
-            </Card>
-
-            <div className="space-y-4">
-              <h3 className="text-sm font-medium tracking-tight px-1 flex items-center gap-2">
-                <Users className="h-4 w-4 text-primary" /> Your Groups
-              </h3>
-              {loading ? (
-                <p className="text-sm text-muted-foreground p-4">Loading groups...</p>
-              ) : groups.length > 0 ? (
-                <div className="grid grid-cols-1 gap-4">
-                  {groups.map((group) => (
-                    <Card key={group.id} className="overflow-hidden glass-card rounded-2xl border-border/50 group/card">
-                      <CardHeader className="p-4 flex flex-row items-center justify-between border-b border-border/50 bg-muted/30">
-                        <div className="min-w-0">
-                          <CardTitle className="text-sm font-bold truncate">{group.name}</CardTitle>
-                          <CardDescription className="text-[10px] mt-0.5">{group.members.length} {group.members.length === 1 ? "member" : "members"}</CardDescription>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="icon-xs" onClick={() => openManageMembers(group)} className="h-8 w-8 text-primary hover:bg-primary/10 rounded-xl opacity-0 group-hover/card:opacity-100 transition-opacity">
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon-xs" onClick={() => handleDeleteGroup(group.id)} className="h-8 w-8 text-muted-foreground hover:text-destructive rounded-xl opacity-0 group-hover/card:opacity-100 transition-opacity">
+                          <Button variant="ghost" size="icon" onClick={() => handleRemoveFriend(friend.id)} className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0 rounded-xl">
                             <Trash2 className="h-4 w-4" />
                           </Button>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="p-4 bg-background/50">
-                        <div className="flex flex-wrap gap-2">
-                          {group.members.length > 0 ? (
-                            group.members.slice(0, 5).map((m, idx) => (
-                              <Avatar key={idx} className="h-7 w-7 ring-2 ring-background border border-border/50">
-                                <AvatarImage src={m.avatar_url ?? undefined} />
-                                <AvatarFallback className="text-[8px] bg-primary/10 text-primary font-bold">{m.display_name[0]}</AvatarFallback>
-                              </Avatar>
-                            ))
-                          ) : (
-                            <p className="text-[11px] text-muted-foreground italic">No members yet.</p>
-                          )}
-                          {group.members.length > 5 && (
-                            <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center text-[8px] font-bold border border-border/50 ring-2 ring-background">
-                              +{group.members.length - 5}
-                            </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : (
-                <EmptyState variant="collections" title="No groups yet" description="Create a group to easily share things with friends." />
-              )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState variant="collections" title="No friends yet" description="Add someone using their friend code." />
+                )}
+              </div>
             </div>
-          </div>
-        </TabsContent>
-      </Tabs>
+          </TabsContent>
+
+          {/* ─── REQUESTS TAB: Side by side ─── */}
+          <TabsContent value="requests">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Left: Incoming */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-medium tracking-tight px-1">Incoming Requests</h3>
+                {incomingReqs.length > 0 ? (
+                  <div className="space-y-3 stagger-grid">
+                    {incomingReqs.map((req) => (
+                      <Card key={req.id} className="glass-card rounded-2xl">
+                        <CardContent className="p-4 flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <Avatar className="h-10 w-10 border">
+                              <AvatarImage src={req.friend.avatar_url ?? undefined} />
+                              <AvatarFallback className="text-xs">{req.friend.display_name[0]?.toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0">
+                              <p className="font-medium text-sm truncate">{req.friend.display_name}</p>
+                              <p className="text-[10px] text-muted-foreground">Wants to be friends</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Button variant="default" size="sm" onClick={() => handleAccept(req.id)}>Accept</Button>
+                            <Button variant="ghost" size="sm" onClick={() => handleDenyOrRemove(req.id)} className="text-destructive hover:bg-destructive/10">Decline</Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-8 text-center bg-muted/30 rounded-lg border border-dashed">
+                    <p className="text-sm text-muted-foreground">No pending incoming requests.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Right: Sent */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-medium tracking-tight px-1">Sent Requests</h3>
+                {outgoingReqs.length > 0 ? (
+                  <div className="space-y-3 stagger-grid">
+                    {outgoingReqs.map((req) => (
+                      <div key={req.id} className="flex items-center justify-between p-3 rounded-xl border bg-background text-sm glass-card">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Avatar className="h-6 w-6">
+                            <AvatarImage src={req.friend.avatar_url ?? undefined} />
+                            <AvatarFallback className="text-[10px]">{req.friend.display_name[0]?.toUpperCase()}</AvatarFallback>
+                          </Avatar>
+                          <span className="truncate">{req.friend.display_name}</span>
+                        </div>
+                        <Badge variant="secondary" className="text-[10px]">Pending...</Badge>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-8 text-center bg-muted/30 rounded-lg border border-dashed">
+                    <p className="text-sm text-muted-foreground">No sent requests.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* ─── GROUPS TAB (unchanged layout) ─── */}
+          <TabsContent value="groups" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card className="glass-card rounded-2xl h-fit">
+                <CardHeader className="pb-3 border-b border-border/50">
+                  <CardTitle className="text-base font-heading font-semibold">Create a Group</CardTitle>
+                  <CardDescription className="text-xs">Organize friends for easier sharing.</CardDescription>
+                </CardHeader>
+                <CardContent className="pt-4 flex gap-3">
+                  <Input placeholder="Group name..." value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleCreateGroup()} className="flex-1 rounded-xl" />
+                  <Button onClick={handleCreateGroup} disabled={creatingGroup || !newGroupName.trim()} className="btn-gradient rounded-xl px-6">
+                    {creatingGroup ? "..." : "Create"}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <div className="space-y-4">
+                <h3 className="text-sm font-medium tracking-tight px-1 flex items-center gap-2">
+                  <Users className="h-4 w-4 text-primary" /> Your Groups
+                </h3>
+                {loading ? (
+                  <p className="text-sm text-muted-foreground p-4">Loading groups...</p>
+                ) : groups.length > 0 ? (
+                  <div className="grid grid-cols-1 gap-4">
+                    {groups.map((group) => (
+                      <Card key={group.id} className="overflow-hidden glass-card rounded-2xl border-border/50 group/card">
+                        <CardHeader className="p-4 flex flex-row items-center justify-between border-b border-border/50 bg-muted/30">
+                          <div className="min-w-0">
+                            <CardTitle className="text-sm font-bold truncate">{group.name}</CardTitle>
+                            <CardDescription className="text-[10px] mt-0.5">{group.members.length} {group.members.length === 1 ? "member" : "members"}</CardDescription>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="icon-xs" onClick={() => openManageMembers(group)} className="h-8 w-8 text-primary hover:bg-primary/10 rounded-xl opacity-0 group-hover/card:opacity-100 transition-opacity">
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon-xs" onClick={() => handleDeleteGroup(group.id)} className="h-8 w-8 text-muted-foreground hover:text-destructive rounded-xl opacity-0 group-hover/card:opacity-100 transition-opacity">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="p-4 bg-background/50">
+                          <div className="flex flex-wrap gap-2">
+                            {group.members.length > 0 ? (
+                              group.members.slice(0, 5).map((m, idx) => (
+                                <Avatar key={idx} className="h-7 w-7 ring-2 ring-background border border-border/50">
+                                  <AvatarImage src={m.avatar_url ?? undefined} />
+                                  <AvatarFallback className="text-[8px] bg-primary/10 text-primary font-bold">{m.display_name[0]}</AvatarFallback>
+                                </Avatar>
+                              ))
+                            ) : (
+                              <p className="text-[11px] text-muted-foreground italic">No members yet.</p>
+                            )}
+                            {group.members.length > 5 && (
+                              <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center text-[8px] font-bold border border-border/50 ring-2 ring-background">
+                                +{group.members.length - 5}
+                              </div>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState variant="collections" title="No groups yet" description="Create a group to easily share things with friends." />
+                )}
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
 
       {/* QR Modal — same as before */}
       <Dialog open={qrModalOpen} onOpenChange={setQrModalOpen}>
         <DialogContent className="sm:max-w-sm text-center glass-card rounded-2xl">
           <DialogHeader>
-            <DialogTitle className="text-center font-heading">Your Friend Code</DialogTitle>
+            <DialogTitle className="text-center font-heading">
+              Your Friend Code
+              <p className="text-xs text-muted-foreground mt-2">Scan this QR code or share the code above to connect with friends.</p>
+            </DialogTitle>
           </DialogHeader>
           <div className="flex flex-col items-center justify-center p-6 gap-6">
-            <div className="p-4 rounded-2xl shadow-lg animate-scale-in" style={{ background: 'white', boxShadow: '0 0 30px var(--glow)' }}>
-              {currentUser && (
-                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=LIEB-${currentUser.friend_code}&color=000000`} alt="QR Code" className="w-48 h-48" />
-              )}
+              <div className="p-4 rounded-2xl shadow-lg animate-scale-in" style={{ background: 'white', boxShadow: '0 0 30px var(--glow)' }}>
+                {currentUser && (
+                  <QRCodeSVG
+                    value={`${typeof window !== "undefined" ? window.location.origin : ""}/invite/${currentUser.friend_code}`}
+                    size={192}
+                    level="M"
+                    id="friend-qr-code"
+                  />
+                )}
+              </div>
+              <div className="flex gap-2 w-full">
+              <Button
+                variant="outline"
+                className="flex-1 rounded-xl"
+                onClick={() => {
+                  navigator.clipboard.writeText(currentUser?.friend_code ?? "");
+                  toast.success("Code copied!");
+                }}
+              >
+                <Copy className="h-3.5 w-3.5 mr-1.5" /> Copy Code
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1 rounded-xl"
+                onClick={async () => {
+                  const svg = document.getElementById("friend-qr-code");
+                  if (!svg) return;
+                  const canvas = document.createElement("canvas");
+                  canvas.width = 256;
+                  canvas.height = 256;
+                  const ctx = canvas.getContext("2d");
+                  if (!ctx) return;
+                  ctx.fillStyle = "white";
+                  ctx.fillRect(0, 0, 256, 256);
+                  const svgData = new XMLSerializer().serializeToString(svg);
+                  const img = new Image();
+                  img.onload = async () => {
+                    ctx.drawImage(img, 28, 28, 200, 200);
+                    canvas.toBlob(async (blob) => {
+                      if (!blob) return;
+                      try {
+                        await navigator.clipboard.write([
+                          new ClipboardItem({ "image/png": blob }),
+                        ]);
+                        toast.success("QR code copied as image!");
+                      } catch {
+                        toast.error("Couldn't copy image. Try screenshot instead.");
+                      }
+                    }, "image/png");
+                  };
+                  img.src = "data:image/svg+xml;base64," + btoa(svgData);
+                }}
+              >
+                <Copy className="h-3.5 w-3.5 mr-1.5" /> Copy Image
+              </Button>
             </div>
             <div className="px-5 py-3 rounded-xl font-mono text-xl tracking-widest font-bold w-full select-all text-center gradient-text" style={{ background: 'var(--glass)', border: '1px solid var(--glass-border)' }}>
               {currentUser?.friend_code}

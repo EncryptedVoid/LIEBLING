@@ -4,9 +4,9 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { createClient } from "@/lib/supabase/client";
-import { Check, Sun, Moon, Clock, UserPlus, Loader2, Copy, Gift, LayoutTemplate, CalendarDays } from "lucide-react";
+import { Check, Sun, Moon, Clock, UserPlus, Loader2, Copy, Gift, LayoutTemplate, CalendarDays, Mail } from "lucide-react";
 import { THEME_COLORS, THEME_CSS } from "@/lib/theme-colors";
-
+import { MfaEnrollment } from "@/components/mfa-enrollment";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Checkbox } from "@/components/ui/checkbox";
 import { AvatarUpload } from "@/components/avatar-upload";
 import { toast } from "sonner";
+import { motion, AnimatePresence } from "motion/react";
 
 type AddedFriend = { name: string; code: string };
 
@@ -44,11 +45,15 @@ export default function OnboardingPage() {
   const [defaultLists, setDefaultLists] = useState<string[]>([]);
   const [myCode, setMyCode] = useState("");
 
+  const [inviteEmails, setInviteEmails] = useState("");
+  const [sendingInvites, setSendingInvites] = useState(false);
+  const [sentInvites, setSentInvites] = useState<string[]>([]);
+
   const [friendCode, setFriendCode] = useState("");
   const [addingFriend, setAddingFriend] = useState(false);
   const [addedFriends, setAddedFriends] = useState<AddedFriend[]>([]);
 
-  const totalSteps = 7;
+  const totalSteps = 8;
 
   // Load user profile on mount
   useEffect(() => {
@@ -96,6 +101,45 @@ export default function OnboardingPage() {
 
   function toggleList(listName: string) {
     setDefaultLists(prev => prev.includes(listName) ? prev.filter(l => l !== listName) : [...prev, listName]);
+  }
+
+  async function handleSendInvites() {
+    const emails = inviteEmails
+      .split(/[,;\n]+/)
+      .map((e) => e.trim().toLowerCase())
+      .filter((e) => e && e.includes("@"));
+
+    if (emails.length === 0) {
+      toast.error("Enter at least one valid email address.");
+      return;
+    }
+
+    setSendingInvites(true);
+    try {
+      const res = await fetch("/api/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emails }),
+      });
+      const data = await res.json();
+
+      if (data.results) {
+        const sent = data.results
+          .filter((r: any) => r.status === "sent")
+          .map((r: any) => r.email);
+        setSentInvites((prev) => [...prev, ...sent]);
+        setInviteEmails("");
+
+        if (sent.length > 0) {
+          toast.success(`Invitations sent to ${sent.length} people!`);
+        } else {
+          toast.info("All emails were already invited or invalid.");
+        }
+      }
+    } catch {
+      toast.error("Couldn't send invitations.");
+    }
+    setSendingInvites(false);
   }
 
   function handleFriendCodeChange(value: string) {
@@ -168,6 +212,14 @@ export default function OnboardingPage() {
       // Clean up preview theme
       const el = document.getElementById("onboarding-theme-preview");
       if (el) el.remove();
+
+      // Send welcome email (non-blocking)
+      try {
+        await fetch("/api/email/welcome", { method: "POST" });
+      } catch {
+        // Non-critical
+      }
+
       router.push("/dashboard");
       router.refresh();
     } catch (err) { toast.error("Something went wrong."); }
@@ -186,221 +238,351 @@ export default function OnboardingPage() {
             ))}
           </div>
 
-          {/* Step 0: Avatar */}
-          {step === 0 && (
-            <Card className="shadow-lg shadow-primary/5 animate-in fade-in-50 slide-in-from-bottom-2 duration-300">
-              <CardHeader className="text-center">
-                <CardTitle className="text-xl">Add a profile photo</CardTitle>
-                <CardDescription>Help your friends recognize you.</CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col items-center gap-6">
-                <AvatarUpload currentUrl={avatarUrl} displayName={displayName || "U"} onUploaded={(url) => setAvatarUrl(url)} size="lg" />
-                <div className="flex gap-2 w-full max-w-xs">
-                  <Button variant="ghost" className="flex-1" onClick={() => setStep(1)}>Skip</Button>
-                  <Button className="flex-1 shadow-sm btn-gradient" onClick={() => setStep(1)}>Next</Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          <AnimatePresence mode="wait">
+            {/* Step 0: Avatar */}
+            {step === 0 && (
+              <motion.div
+                key="step-0"
+                initial={{ opacity: 0, x: 40 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -40 }}
+                transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <Card className="shadow-lg shadow-primary/5">
+                  <CardHeader className="text-center">
+                    <CardTitle className="text-xl">Add a profile photo</CardTitle>
+                    <CardDescription>Help your friends recognize you.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex flex-col items-center gap-6">
+                    <AvatarUpload currentUrl={avatarUrl} displayName={displayName || "U"} onUploaded={(url) => setAvatarUrl(url)} size="lg" />
+                    <div className="flex gap-2 w-full max-w-xs">
+                      <Button variant="ghost" className="flex-1" onClick={() => setStep(1)}>Skip</Button>
+                      <Button className="flex-1 shadow-sm btn-gradient" onClick={() => setStep(1)}>Next</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
 
-          {/* Step 1: Birthday */}
-          {step === 1 && (
-            <Card className="shadow-lg shadow-primary/5 animate-in fade-in-50 slide-in-from-bottom-2 duration-300">
-              <CardHeader className="text-center">
-                <CardTitle className="text-xl">When&apos;s your birthday?</CardTitle>
-                <CardDescription>We&apos;ll let your friends know when it&apos;s coming up.</CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col items-center gap-4">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full max-w-xs justify-start font-normal">
-                      {birthday ? format(birthday, "MMMM d, yyyy") : "Pick your birthday"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="center">
-                    <Calendar mode="single" selected={birthday} onSelect={setBirthday} captionLayout="dropdown" fromYear={1920} toYear={new Date().getFullYear()} initialFocus />
-                  </PopoverContent>
-                </Popover>
-                <div className="flex gap-2 w-full max-w-xs">
-                  <Button variant="ghost" className="flex-1" onClick={() => setStep(0)}>Back</Button>
-                  <Button className="flex-1 shadow-sm btn-gradient" onClick={() => setStep(2)}>{birthday ? "Next" : "Skip"}</Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+            {/* Step 1: Birthday */}
+            {step === 1 && (
+              <motion.div
+                key="step-1"
+                initial={{ opacity: 0, x: 40 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -40 }}
+                transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <Card className="shadow-lg shadow-primary/5 ">
+                  <CardHeader className="text-center">
+                    <CardTitle className="text-xl">When&apos;s your birthday?</CardTitle>
+                    <CardDescription>We&apos;ll let your friends know when it&apos;s coming up.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex flex-col items-center gap-4">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full max-w-xs justify-start font-normal">
+                          {birthday ? format(birthday, "MMMM d, yyyy") : "Pick your birthday"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="center">
+                        <Calendar mode="single" selected={birthday} onSelect={setBirthday} captionLayout="dropdown" fromYear={1920} toYear={new Date().getFullYear()} initialFocus />
+                      </PopoverContent>
+                    </Popover>
+                    <div className="flex gap-2 w-full max-w-xs">
+                      <Button variant="ghost" className="flex-1" onClick={() => setStep(0)}>Back</Button>
+                      <Button className="flex-1 shadow-sm btn-gradient" onClick={() => setStep(2)}>{birthday ? "Next" : "Skip"}</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
 
-          {/* Step 2: Time Format */}
-          {step === 2 && (
-            <Card className="shadow-lg shadow-primary/5 animate-in fade-in-50 slide-in-from-bottom-2 duration-300">
-              <CardHeader className="text-center">
-                <CardTitle className="text-xl">How do you prefer time?</CardTitle>
-                <CardDescription>Choose your preferred time format.</CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col items-center gap-4">
-                <div className="flex gap-3 w-full max-w-xs">
-                  {(["12h", "24h"] as const).map((fmt) => (
-                    <button key={fmt} onClick={() => setTimeFormat(fmt)}
-                      className={`flex-1 flex flex-col items-center gap-2 rounded-xl border-2 p-5 transition-all ${timeFormat === fmt ? "border-primary bg-primary/5" : "border-muted hover:border-muted-foreground/20"}`}>
-                      <Clock className={`h-6 w-6 ${timeFormat === fmt ? "text-primary" : "text-muted-foreground"}`} />
-                      <span className={`text-lg font-mono font-medium ${timeFormat === fmt ? "text-primary" : "text-foreground"}`}>{fmt === "12h" ? "2:30 PM" : "14:30"}</span>
-                      <span className="text-xs text-muted-foreground">{fmt === "12h" ? "12-hour" : "24-hour"}</span>
-                    </button>
-                  ))}
-                </div>
-                <div className="flex gap-2 w-full max-w-xs">
-                  <Button variant="ghost" className="flex-1" onClick={() => setStep(1)}>Back</Button>
-                  <Button className="flex-1 shadow-sm btn-gradient" onClick={() => setStep(3)}>Next</Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Step 3: Light/Dark */}
-          {step === 3 && (
-            <Card className="shadow-lg shadow-primary/5 animate-in fade-in-50 slide-in-from-bottom-2 duration-300">
-              <CardHeader className="text-center">
-                <CardTitle className="text-xl">Light or dark?</CardTitle>
-                <CardDescription>You can always change this later.</CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col items-center gap-4">
-                <div className="flex gap-3 w-full max-w-xs">
-                  {(["light", "dark"] as const).map((mode) => (
-                    <button key={mode} onClick={() => setThemeMode(mode)}
-                      className={`flex-1 flex flex-col items-center gap-2 rounded-xl border-2 p-6 transition-all ${themeMode === mode ? "border-primary bg-primary/5 shadow-sm" : "border-muted hover:border-muted-foreground/20"}`}>
-                      {mode === "light" ? <Sun className="h-8 w-8" /> : <Moon className="h-8 w-8" />}
-                      <span className="text-sm font-medium capitalize">{mode}</span>
-                      {themeMode === mode && <Check className="h-4 w-4 text-primary" />}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex gap-2 w-full max-w-xs">
-                  <Button variant="ghost" className="flex-1" onClick={() => setStep(2)}>Back</Button>
-                  <Button className="flex-1 shadow-sm btn-gradient" onClick={() => setStep(4)}>Next</Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Step 4: Theme Color */}
-          {step === 4 && (
-            <Card className="shadow-lg shadow-primary/5 animate-in fade-in-50 slide-in-from-bottom-2 duration-300">
-              <CardHeader className="text-center">
-                <CardTitle className="text-xl">Pick a color</CardTitle>
-                <CardDescription>Your accent color across the experience.</CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col items-center gap-4">
-                <div className="grid grid-cols-3 gap-3 w-full max-w-xs">
-                  {THEME_COLORS.map((color) => (
-                    <button key={color.id} onClick={() => setThemeColor(color.id)}
-                      className={`flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all ${themeColor === color.id ? "border-foreground shadow-sm scale-[1.02]" : "border-muted hover:border-muted-foreground/20 hover:scale-[1.01]"}`}>
-                      <div className="h-8 w-8 rounded-full shadow-inner ring-1 ring-black/5" style={{ backgroundColor: color.preview }} />
-                      <span className="text-xs font-medium">{color.label}</span>
-                      {themeColor === color.id && <Check className="h-3 w-3" />}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex gap-2 w-full max-w-xs">
-                  <Button variant="ghost" className="flex-1" onClick={() => setStep(3)}>Back</Button>
-                  <Button className="flex-1 shadow-sm btn-gradient" onClick={() => setStep(5)}>Next</Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Step 5: Default Wishlists (expanded) */}
-          {step === 5 && (
-            <Card className="shadow-lg shadow-primary/5 animate-in fade-in-50 slide-in-from-bottom-2 duration-300">
-              <CardHeader className="text-center">
-                <CardTitle className="text-xl">Create default wishlists?</CardTitle>
-                <CardDescription>We can set up a few lists to get you started.</CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col items-center gap-4">
-                <div className="w-full max-w-xs space-y-2 max-h-[300px] overflow-y-auto scrollbar-thin pr-1">
-                  {DEFAULT_WISHLISTS.map((list) => (
-                    <label key={list.id} className="flex items-center justify-between p-3 rounded-xl border border-muted hover:border-primary/50 transition-colors cursor-pointer group">
-                      <div className="flex items-center gap-3">
-                        <div className={`h-9 w-9 rounded-lg flex items-center justify-center text-lg ${defaultLists.includes(list.id) ? "bg-primary/10" : "bg-muted group-hover:bg-primary/5"} transition-colors`}>
-                          {list.icon}
-                        </div>
-                        <span className="font-medium text-sm">{list.label}</span>
-                      </div>
-                      <Checkbox checked={defaultLists.includes(list.id)} onCheckedChange={() => toggleList(list.id)} />
-                    </label>
-                  ))}
-                </div>
-                <div className="flex gap-2 w-full max-w-xs mt-2">
-                  <Button variant="ghost" className="flex-1" onClick={() => setStep(4)}>Back</Button>
-                  <Button className="flex-1 shadow-sm btn-gradient" onClick={() => setStep(6)}>Next</Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Step 6: Add Friends + Copy Own Code */}
-          {step === 6 && (
-            <Card className="shadow-lg shadow-primary/5 animate-in fade-in-50 slide-in-from-bottom-2 duration-300">
-              <CardHeader className="text-center">
-                <CardTitle className="text-xl flex items-center justify-center gap-2">
-                  <UserPlus className="h-5 w-5 text-primary" /> Add your friends
-                </CardTitle>
-                <CardDescription>Got a friend code? Enter it below. You can add multiple!</CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col items-center gap-4">
-                {/* Your own code — copy & share */}
-                <div className="w-full max-w-xs rounded-xl border border-primary/20 bg-primary/5 p-3">
-                  <p className="text-[10px] font-medium text-primary uppercase tracking-widest mb-1">Your Friend Code</p>
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono font-bold text-sm tracking-widest">{myCode || "LIEB-XXXX-XXXX"}</span>
-                    <Button variant="ghost" size="icon-sm" onClick={copyMyCode} className="h-7 w-7 text-primary hover:bg-primary/20">
-                      <Copy className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground mt-1">Share this with friends so they can add you!</p>
-                </div>
-
-                {/* Friend code input */}
-                <div className="w-full max-w-xs flex gap-2">
-                  <Input
-                    placeholder="LIEB-XXXX-XXXX"
-                    value={friendCode}
-                    onChange={(e) => handleFriendCodeChange(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleAddFriend()}
-                    className="font-mono text-center tracking-wider"
-                    maxLength={14}
-                  />
-                  <Button onClick={handleAddFriend} disabled={addingFriend || friendCode.length < 14} className="shrink-0 btn-gradient">
-                    {addingFriend ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add"}
-                  </Button>
-                </div>
-
-                {/* Added friends list */}
-                {addedFriends.length > 0 && (
-                  <div className="w-full max-w-xs space-y-2 animate-in fade-in-50 slide-in-from-top-2">
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Requests sent</p>
-                    <div className="space-y-1.5">
-                      {addedFriends.map((friend, i) => (
-                        <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-500/10 text-green-700 dark:text-green-400 text-sm">
-                          <Check className="h-4 w-4 shrink-0" />
-                          <span className="truncate">{friend.name}</span>
-                        </div>
+            {/* Step 2: Time Format */}
+            {step === 2 && (
+              <motion.div
+                key="step-1"
+                initial={{ opacity: 0, x: 40 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -40 }}
+                transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <Card className="shadow-lg shadow-primary/5 ">
+                  <CardHeader className="text-center">
+                    <CardTitle className="text-xl">How do you prefer time?</CardTitle>
+                    <CardDescription>Choose your preferred time format.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex flex-col items-center gap-4">
+                    <div className="flex gap-3 w-full max-w-xs">
+                      {(["12h", "24h"] as const).map((fmt) => (
+                        <button key={fmt} onClick={() => setTimeFormat(fmt)}
+                          className={`flex-1 flex flex-col items-center gap-2 rounded-xl border-2 p-5 transition-all ${timeFormat === fmt ? "border-primary bg-primary/5" : "border-muted hover:border-muted-foreground/20"}`}>
+                          <Clock className={`h-6 w-6 ${timeFormat === fmt ? "text-primary" : "text-muted-foreground"}`} />
+                          <span className={`text-lg font-mono font-medium ${timeFormat === fmt ? "text-primary" : "text-foreground"}`}>{fmt === "12h" ? "2:30 PM" : "14:30"}</span>
+                          <span className="text-xs text-muted-foreground">{fmt === "12h" ? "12-hour" : "24-hour"}</span>
+                        </button>
                       ))}
                     </div>
-                  </div>
-                )}
+                    <div className="flex gap-2 w-full max-w-xs">
+                      <Button variant="ghost" className="flex-1" onClick={() => setStep(1)}>Back</Button>
+                      <Button className="flex-1 shadow-sm btn-gradient" onClick={() => setStep(3)}>Next</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
 
-                <p className="text-xs text-muted-foreground text-center max-w-xs">
-                  Don&apos;t have a code? No worries — you can add friends later from your dashboard.
-                </p>
+            {/* Step 3: Light/Dark */}
+            {step === 3 && (
+              <motion.div
+                key="step-1"
+                initial={{ opacity: 0, x: 40 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -40 }}
+                transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <Card className="shadow-lg shadow-primary/5 ">
+                  <CardHeader className="text-center">
+                    <CardTitle className="text-xl">Light or dark?</CardTitle>
+                    <CardDescription>You can always change this later.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex flex-col items-center gap-4">
+                    <div className="flex gap-3 w-full max-w-xs">
+                      {(["light", "dark"] as const).map((mode) => (
+                        <button key={mode} onClick={() => setThemeMode(mode)}
+                          className={`flex-1 flex flex-col items-center gap-2 rounded-xl border-2 p-6 transition-all ${themeMode === mode ? "border-primary bg-primary/5 shadow-sm" : "border-muted hover:border-muted-foreground/20"}`}>
+                          {mode === "light" ? <Sun className="h-8 w-8" /> : <Moon className="h-8 w-8" />}
+                          <span className="text-sm font-medium capitalize">{mode}</span>
+                          {themeMode === mode && <Check className="h-4 w-4 text-primary" />}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex gap-2 w-full max-w-xs">
+                      <Button variant="ghost" className="flex-1" onClick={() => setStep(2)}>Back</Button>
+                      <Button className="flex-1 shadow-sm btn-gradient" onClick={() => setStep(4)}>Next</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
 
-                <div className="flex gap-2 w-full max-w-xs">
-                  <Button variant="ghost" className="flex-1" onClick={() => setStep(5)}>Back</Button>
-                  <Button className="flex-1 shadow-sm btn-gradient" onClick={handleFinish} disabled={saving}>
-                    {saving ? "Setting up..." : (addedFriends.length > 0 ? "Done!" : "Skip & Finish")}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+            {/* Step 4: Theme Color */}
+            {step === 4 && (
+              <motion.div
+                key="step-1"
+                initial={{ opacity: 0, x: 40 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -40 }}
+                transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <Card className="shadow-lg shadow-primary/5 ">
+                  <CardHeader className="text-center">
+                    <CardTitle className="text-xl">Pick a color</CardTitle>
+                    <CardDescription>Your accent color across the experience.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex flex-col items-center gap-4">
+                    <div className="grid grid-cols-3 gap-3 w-full max-w-xs">
+                      {THEME_COLORS.map((color) => (
+                        <button key={color.id} onClick={() => setThemeColor(color.id)}
+                          className={`flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all ${themeColor === color.id ? "border-foreground shadow-sm scale-[1.02]" : "border-muted hover:border-muted-foreground/20 hover:scale-[1.01]"}`}>
+                          <div className="h-8 w-8 rounded-full shadow-inner ring-1 ring-black/5" style={{ backgroundColor: color.preview }} />
+                          <span className="text-xs font-medium">{color.label}</span>
+                          {themeColor === color.id && <Check className="h-3 w-3" />}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex gap-2 w-full max-w-xs">
+                      <Button variant="ghost" className="flex-1" onClick={() => setStep(3)}>Back</Button>
+                      <Button className="flex-1 shadow-sm btn-gradient" onClick={() => setStep(5)}>Next</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+
+            {/* Step 5: MFA Setup (optional) */}
+            {step === 5 && (
+              <motion.div
+                key="step-1"
+                initial={{ opacity: 0, x: 40 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -40 }}
+                transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <Card className="shadow-lg shadow-primary/5 ">
+                  <CardHeader className="text-center">
+                    <CardTitle className="text-xl">Secure your account</CardTitle>
+                    <CardDescription>Add two-factor authentication for extra security.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex flex-col items-center gap-4">
+                    <MfaEnrollment
+                      variant="inline"
+                      showSkip
+                      onSkip={() => setStep(6)}
+                      onComplete={() => setStep(6)}
+                    />
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+
+            {/* Step 6: Default Wishlists (expanded) */}
+            {step === 6 && (
+              <motion.div
+                key="step-1"
+                initial={{ opacity: 0, x: 40 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -40 }}
+                transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <Card className="shadow-lg shadow-primary/5 ">
+                  <CardHeader className="text-center">
+                    <CardTitle className="text-xl">Create default wishlists?</CardTitle>
+                    <CardDescription>We can set up a few lists to get you started.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex flex-col items-center gap-4">
+                    <div className="w-full max-w-xs space-y-2 max-h-[300px] overflow-y-auto scrollbar-thin pr-1">
+                      {DEFAULT_WISHLISTS.map((list) => (
+                        <label key={list.id} className="flex items-center justify-between p-3 rounded-xl border border-muted hover:border-primary/50 transition-colors cursor-pointer group">
+                          <div className="flex items-center gap-3">
+                            <div className={`h-9 w-9 rounded-lg flex items-center justify-center text-lg ${defaultLists.includes(list.id) ? "bg-primary/10" : "bg-muted group-hover:bg-primary/5"} transition-colors`}>
+                              {list.icon}
+                            </div>
+                            <span className="font-medium text-sm">{list.label}</span>
+                          </div>
+                          <Checkbox checked={defaultLists.includes(list.id)} onCheckedChange={() => toggleList(list.id)} />
+                        </label>
+                      ))}
+                    </div>
+                    <div className="flex gap-2 w-full max-w-xs mt-2">
+                      <Button variant="ghost" className="flex-1" onClick={() => setStep(4)}>Back</Button>
+                      <Button className="flex-1 shadow-sm btn-gradient" onClick={() => setStep(6)}>Next</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+
+            {/* Step 7: Add Friends + Copy Own Code */}
+            {step === 7 && (
+              <motion.div
+                key="step-1"
+                initial={{ opacity: 0, x: 40 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -40 }}
+                transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <Card className="shadow-lg shadow-primary/5 ">
+                  <CardHeader className="text-center">
+                    <CardTitle className="text-xl flex items-center justify-center gap-2">
+                      <UserPlus className="h-5 w-5 text-primary" /> Add your friends
+                    </CardTitle>
+                    <CardDescription>Got a friend code? Enter it below. You can add multiple!</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex flex-col items-center gap-4">
+                    {/* Email invites */}
+                    <div className="w-full max-w-xs">
+                      <p className="text-[10px] font-medium text-primary uppercase tracking-widest mb-2">
+                        Invite by email
+                      </p>
+                      <div className="flex flex-col gap-2">
+                        <Input
+                          placeholder="friend@email.com, another@email.com"
+                          value={inviteEmails}
+                          onChange={(e) => setInviteEmails(e.target.value)}
+                          className="text-xs"
+                        />
+                        <Button
+                          onClick={handleSendInvites}
+                          disabled={sendingInvites || !inviteEmails.trim()}
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                        >
+                          {sendingInvites ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                          ) : (
+                            <Mail className="h-3.5 w-3.5 mr-1.5" />
+                          )}
+                          Send invitations
+                        </Button>
+                      </div>
+                      {sentInvites.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {sentInvites.map((email, i) => (
+                            <div
+                              key={i}
+                              className="flex items-center gap-1.5 text-[11px] text-green-600 dark:text-green-400"
+                            >
+                              <Check className="h-3 w-3" />
+                              <span className="truncate">{email}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="w-full max-w-xs">
+                      <div className="h-px bg-border my-2" />
+                      <p className="text-[10px] text-muted-foreground text-center mb-2">or add by friend code</p>
+                    </div>
+                    {/* Your own code — copy & share */}
+                    <div className="w-full max-w-xs rounded-xl border border-primary/20 bg-primary/5 p-3">
+                      <p className="text-[10px] font-medium text-primary uppercase tracking-widest mb-1">Your Friend Code</p>
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono font-bold text-sm tracking-widest">{myCode || "LIEB-XXXX-XXXX"}</span>
+                        <Button variant="ghost" size="icon-sm" onClick={copyMyCode} className="h-7 w-7 text-primary hover:bg-primary/20">
+                          <Copy className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-1">Share this with friends so they can add you!</p>
+                    </div>
+
+                    {/* Friend code input */}
+                    <div className="w-full max-w-xs flex gap-2">
+                      <Input
+                        placeholder="LIEB-XXXX-XXXX"
+                        value={friendCode}
+                        onChange={(e) => handleFriendCodeChange(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleAddFriend()}
+                        className="font-mono text-center tracking-wider"
+                        maxLength={14}
+                      />
+                      <Button onClick={handleAddFriend} disabled={addingFriend || friendCode.length < 14} className="shrink-0 btn-gradient">
+                        {addingFriend ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add"}
+                      </Button>
+                    </div>
+
+                    {/* Added friends list */}
+                    {addedFriends.length > 0 && (
+                      <div className="w-full max-w-xs space-y-2 animate-in fade-in-50 slide-in-from-top-2">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Requests sent</p>
+                        <div className="space-y-1.5">
+                          {addedFriends.map((friend, i) => (
+                            <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-500/10 text-green-700 dark:text-green-400 text-sm">
+                              <Check className="h-4 w-4 shrink-0" />
+                              <span className="truncate">{friend.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <p className="text-xs text-muted-foreground text-center max-w-xs">
+                      Don&apos;t have a code? No worries — you can add friends later from your dashboard.
+                    </p>
+
+                    <div className="flex gap-2 w-full max-w-xs">
+                      <Button variant="ghost" className="flex-1" onClick={() => setStep(5)}>Back</Button>
+                      <Button className="flex-1 shadow-sm btn-gradient" onClick={handleFinish} disabled={saving}>
+                        {saving ? "Setting up..." : (addedFriends.length > 0 ? "Done!" : "Skip & Finish")}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 

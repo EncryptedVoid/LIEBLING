@@ -25,6 +25,8 @@ export function AuthForm({ mode, prefillEmail, prefillPassword }: AuthFormProps)
   const [password, setPassword] = useState(prefillPassword ?? "");
   const [displayName, setDisplayName] = useState("");
   const [noAccountBanner, setNoAccountBanner] = useState(false);
+  const [duplicateAccountBanner, setDuplicateAccountBanner] = useState(false);
+  const [failedAttempts, setFailedAttempts] = useState(0);
 
   const isSignup = mode === "signup";
 
@@ -35,20 +37,34 @@ export function AuthForm({ mode, prefillEmail, prefillPassword }: AuthFormProps)
 
     try {
       if (isSignup) {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: { data: { display_name: displayName } },
         });
         if (error) throw error;
+        // Supabase returns a user with an empty identities array when the email already exists
+        if (data.user && data.user.identities && data.user.identities.length === 0) {
+          setNoAccountBanner(false);
+          setDuplicateAccountBanner(true);
+          toast.error("An account with this email already exists.");
+          setLoading(false);
+          return;
+        }
         toast.success("Check your email to confirm your account.");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) {
           const msg = error.message.toLowerCase();
           if (msg.includes("invalid login") || msg.includes("invalid credentials") || msg.includes("user not found")) {
-            setNoAccountBanner(true);
-            toast.error("No account found with these credentials.");
+            const newCount = failedAttempts + 1;
+            setFailedAttempts(newCount);
+            if (newCount >= 5) {
+              toast.error("Multiple failed attempts. Consider resetting your password.");
+            } else {
+              setNoAccountBanner(true);
+              toast.error("No account found with these credentials.");
+            }
             setLoading(false);
             return;
           }
@@ -96,6 +112,32 @@ export function AuthForm({ mode, prefillEmail, prefillPassword }: AuthFormProps)
         </div>
       )}
 
+      {/* Duplicate account banner — shown during signup */}
+      {duplicateAccountBanner && isSignup && (
+        <div className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 animate-in fade-in-50 slide-in-from-top-2 duration-300">
+          <p className="text-xs font-medium text-amber-300">An account with this email already exists.</p>
+          <p className="text-[11px] mkt-text-muted mt-0.5">Would you like to log in instead?</p>
+          <Button variant="outline" size="sm" className="mt-2 h-6 text-[11px] border-amber-500/30 text-amber-300 hover:bg-amber-500/10 rounded-lg" asChild>
+            <Link href={`/login?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`}>
+              Log in with these details →
+            </Link>
+          </Button>
+        </div>
+      )}
+
+      {/* Failed attempts warning */}
+      {failedAttempts >= 5 && !isSignup && (
+        <div className="mb-4 rounded-xl border border-rose-500/20 bg-rose-500/10 p-3 animate-in fade-in-50 slide-in-from-top-2 duration-300">
+          <p className="text-xs font-medium text-rose-300">Too many failed attempts ({failedAttempts})</p>
+          <p className="text-[11px] mkt-text-muted mt-0.5">Forgot your password? Reset it below.</p>
+          <Button variant="outline" size="sm" className="mt-2 h-6 text-[11px] border-rose-500/30 text-rose-300 hover:bg-rose-500/10 rounded-lg" asChild>
+            <Link href={`/reset-password?email=${encodeURIComponent(email)}`}>
+              Reset password →
+            </Link>
+          </Button>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         {isSignup && (
           <div className="flex flex-col gap-1.5">
@@ -122,12 +164,19 @@ export function AuthForm({ mode, prefillEmail, prefillPassword }: AuthFormProps)
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="password" className="text-xs mkt-text-muted">Password</Label>
           <Input
-            id="password" type="password" placeholder="••••••••"
+            id="password" type="password" placeholder="super-secure-password"
             value={password} onChange={(e) => { setPassword(e.target.value); setNoAccountBanner(false); }}
             required minLength={6}
             className="rounded-xl border mkt-card-border mkt-bg-subtle mkt-text placeholder:mkt-text-faint focus-visible:border-amber-500/40 focus-visible:ring-amber-500/20"
           />
         </div>
+
+        {/* Add after the password Input, inside the password field div */}
+        {!isSignup && (
+          <Link href={`/reset-password${email ? `?email=${encodeURIComponent(email)}` : ""}`} className="text-[10px] mkt-text-muted hover:text-amber-300 transition-colors mt-1 self-end">
+            Forgot password?
+          </Link>
+        )}
 
         <Button
           type="submit" disabled={loading}

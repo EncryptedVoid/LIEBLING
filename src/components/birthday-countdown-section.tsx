@@ -11,7 +11,7 @@ import {
   isToday,
 } from "date-fns";
 import { Cake, PartyPopper, Calendar, ChevronLeft, ChevronRight, Plus } from "lucide-react";
-
+import { motion, AnimatePresence } from "motion/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -163,45 +163,36 @@ export function BirthdayCountdownSection({
           </div>
         </div>
       </CardHeader>
-      
+
       <CardContent className="flex-1 p-0 relative overflow-hidden flex items-center justify-center bg-muted/5">
-        <div 
-          className="flex transition-transform duration-300 ease-in-out h-full w-full"
-          style={{ transform: `translateX(-${currentIndex * 100}%)` }}
-        >
-          {upcomingBirthdays.map((birthday) => (
-            <div key={birthday.id} className="min-w-full h-full flex items-center justify-center p-4 sm:p-6 overflow-y-auto overflow-x-hidden scrollbar-thin">
-              <CountdownCard birthday={birthday} />
-            </div>
-          ))}
-          
-          {/* End Card */}
-          <div className="min-w-full h-full flex items-center justify-center p-6">
-            <div className="text-center max-w-xs flex flex-col items-center">
-              <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
-                <Calendar className="h-8 w-8 text-primary" />
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={currentIndex}
+            initial={{ opacity: 0, x: 80 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -80 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="min-w-full h-full flex items-center justify-center p-4 sm:p-6"
+          >
+            {currentIndex < upcomingBirthdays.length ? (
+              <CountdownCard birthday={upcomingBirthdays[currentIndex]} />
+            ) : (
+              <div className="text-center max-w-xs flex flex-col items-center">
+                <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+                  <Calendar className="h-8 w-8 text-primary" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Want more?</h3>
+                <p className="text-sm text-muted-foreground mb-6">
+                  Do you want to add a countdown to another event or birthday?
+                </p>
+                <Button onClick={() => setAddOpen(true)} className="w-full shadow-sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Countdown
+                </Button>
               </div>
-              <h3 className="text-lg font-semibold mb-2">Want more?</h3>
-              <p className="text-sm text-muted-foreground mb-6">
-                Do you want to add a countdown to another event or birthday?
-              </p>
-              <Button onClick={() => setAddOpen(true)} className="w-full shadow-sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Countdown
-              </Button>
-            </div>
-          </div>
-        </div>
-        
-        {/* Pagination Dots */}
-        <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-1.5">
-          {Array.from({ length: slidesCount }).map((_, i) => (
-            <div 
-              key={i} 
-              className={`h-1.5 rounded-full transition-all ${i === currentIndex ? "w-4 bg-primary" : "w-1.5 bg-border"}`}
-            />
-          ))}
-        </div>
+            )}
+          </motion.div>
+        </AnimatePresence>
       </CardContent>
 
       <AddCountdownDialog 
@@ -220,12 +211,47 @@ export function BirthdayCountdownSection({
 }
 
 function CountdownCard({ birthday }: { birthday: UpcomingBirthday }) {
+  const [showConfetti, setShowConfetti] = useState(false);
   const isCustomEvent = birthday.isCustomEvent;
   const isSelf = birthday.isCurrentUser;
   const days = birthday.daysAway;
 
+  useEffect(() => {
+    if (birthday.isToday) {
+      setShowConfetti(true);
+      const timer = setTimeout(() => setShowConfetti(false), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [birthday.isToday]);
+
   return (
     <div className="w-full max-w-sm rounded-2xl p-6 text-center transition-all glass-card gradient-border-card hover:-translate-y-1 my-auto">
+      {/* Birthday confetti */}
+      {showConfetti && (
+        <div className="absolute inset-0 pointer-events-none overflow-hidden z-10">
+          {Array.from({ length: 40 }, (_, i) => {
+            const colors = ['#f43f5e', '#3b82f6', '#22c55e', '#f97316', '#8b5cf6', '#eab308', '#fbbf24'];
+            return (
+              <div
+                key={i}
+                className="absolute animate-confetti"
+                style={{
+                  left: `${Math.random() * 100}%`,
+                  top: '-10px',
+                  animationDelay: `${Math.random() * 1.5}s`,
+                  animationDuration: `${2 + Math.random() * 2}s`,
+                  width: `${Math.random() * 8 + 4}px`,
+                  height: `${Math.random() * 8 + 4}px`,
+                  backgroundColor: colors[i % colors.length],
+                  borderRadius: Math.random() > 0.5 ? '50%' : '2px',
+                  transform: `rotate(${Math.random() * 360}deg)`,
+                }}
+              />
+            );
+          })}
+        </div>
+      )}
+
       {birthday.user && !isCustomEvent && (
         <div className="relative mx-auto mb-4 w-fit">
           <div className="absolute -inset-1 rounded-full animate-glow-pulse opacity-50" style={{ background: 'linear-gradient(135deg, var(--gradient-from), var(--gradient-to), var(--gradient-accent))' }} />

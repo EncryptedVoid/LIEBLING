@@ -208,7 +208,7 @@ export function GiftsToBuyModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-5xl max-h-[85vh] flex flex-col p-0 overflow-hidden bg-background/95 backdrop-blur-2xl border border-border/50 shadow-2xl rounded-2xl">
+      <DialogContent className="max-w-6xl max-h-[85vh] flex flex-col p-0 overflow-hidden bg-background/95 backdrop-blur-2xl border border-border/50 shadow-2xl rounded-2xl">
         {/* Header */}
         <DialogHeader className="p-6 pb-4 border-b border-border/40 shrink-0">
           <div className="flex items-center justify-between">
@@ -226,27 +226,28 @@ export function GiftsToBuyModal({
                 )}
               </p>
             </div>
-            {/* View toggle */}
-            <div className="flex ring-1 ring-foreground/10 rounded-xl overflow-hidden">
-              <Button
-                variant={viewMode === "by-person" ? "default" : "ghost"}
-                size="sm"
-                className="rounded-none gap-1.5 rounded-l-xl"
-                onClick={() => setViewMode("by-person")}
-              >
-                <UserIcon className="h-3 w-3" />
-                By Person
-              </Button>
-              <Button
-                variant={viewMode === "by-event" ? "default" : "ghost"}
-                size="sm"
-                className="rounded-none gap-1.5 rounded-r-xl"
-                onClick={() => setViewMode("by-event")}
-              >
-                <CalendarDays className="h-3 w-3" />
-                By Event
-              </Button>
-            </div>
+            {eventGroups.some((g) => g.event.id !== "__none__") ? (
+              <div className="flex ring-1 ring-foreground/10 rounded-xl overflow-hidden">
+                <Button
+                  variant={viewMode === "by-person" ? "default" : "ghost"}
+                  size="sm"
+                  className="rounded-none gap-1.5 rounded-l-xl"
+                  onClick={() => setViewMode("by-person")}
+                >
+                  <UserIcon className="h-3 w-3" />
+                  By Person
+                </Button>
+                <Button
+                  variant={viewMode === "by-event" ? "default" : "ghost"}
+                  size="sm"
+                  className="rounded-none gap-1.5 rounded-r-xl"
+                  onClick={() => setViewMode("by-event")}
+                >
+                  <CalendarDays className="h-3 w-3" />
+                  By Event
+                </Button>
+              </div>
+            ) : null}
           </div>
         </DialogHeader>
 
